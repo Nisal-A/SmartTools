@@ -8,6 +8,10 @@ import customerRoutes from './modules/customers/customers.routes.js';
 import invoiceRoutes from './modules/invoices/invoices.routes.js';
 import quotationRoutes from './modules/quotations/quotations.routes.js';
 import pdfEngineRoutes from './modules/pdf-engine/pdfEngine.routes.js';
+import {
+  notFoundHandler,
+  errorHandler,
+} from './middleware/errorHandler.middleware.js';
 
 export function createApp() {
   const app = express();
@@ -36,6 +40,9 @@ export function createApp() {
   app.use('/api/v1/invoices', invoiceRoutes);
   app.use('/api/v1/quotations', quotationRoutes);
   app.use('/api/v1/public/pdf', pdfEngineRoutes);
+
+  app.use(notFoundHandler);
+  app.use(errorHandler);
 
   return app;
 }

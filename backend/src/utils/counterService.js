@@ -49,16 +49,35 @@ export const Counter =
 /**
  * Atomically increments and returns the next formatted document number for a user.
  *
+ * Supports both:
+ * - `getNextSequence(userId, sequenceType, prefix, options)`
+ * - `getNextDocumentNumber(userId, sequenceType, options)`
+ *
  * @param {string|mongoose.Types.ObjectId} userId
- * @param {'invoice'|'quotation'} sequenceType
- * @param {object} [options]
- * @param {number} [options.year]
- * @param {mongoose.ClientSession} [options.session]
+ * @param {'invoice'|'quotation'} [sequenceType='invoice']
+ * @param {string|object} [prefixOrOptions]
+ * @param {object} [maybeOptions]
  * @returns {Promise<string>} e.g. 'INV-2026-0001' or 'QUO-2026-0001'
  */
-export async function getNextDocumentNumber(userId, sequenceType = 'invoice', options = {}) {
+export async function getNextSequence(
+  userId,
+  sequenceType = 'invoice',
+  prefixOrOptions = undefined,
+  maybeOptions = {}
+) {
   const normalizedType = sequenceType === 'quotation' ? 'quotation' : 'invoice';
-  const prefix = normalizedType === 'quotation' ? 'QUO' : 'INV';
+  let prefix = normalizedType === 'quotation' ? 'QUO' : 'INV';
+  let options = maybeOptions || {};
+
+  if (typeof prefixOrOptions === 'string' && prefixOrOptions.trim()) {
+    prefix = prefixOrOptions.trim().toUpperCase();
+  } else if (prefixOrOptions && typeof prefixOrOptions === 'object') {
+    options = prefixOrOptions;
+    if (typeof options.prefix === 'string' && options.prefix.trim()) {
+      prefix = options.prefix.trim().toUpperCase();
+    }
+  }
+
   const year = Number(options.year) || new Date().getUTCFullYear();
 
   const updateOptions = {
@@ -81,11 +100,15 @@ export async function getNextDocumentNumber(userId, sequenceType = 'invoice', op
     updateOptions
   );
 
+  const activePrefix = counterDoc?.prefix || prefix;
   const paddedSeq = String(counterDoc.seq).padStart(4, '0');
-  return `${prefix}-${year}-${paddedSeq}`;
+  return `${activePrefix}-${year}-${paddedSeq}`;
 }
+
+export const getNextDocumentNumber = getNextSequence;
 
 export default {
   Counter,
+  getNextSequence,
   getNextDocumentNumber,
 };

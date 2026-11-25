@@ -8,6 +8,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "seed:admin": "node src/scripts/seedAdmin.js",
+    "test:auth": "node tests/verifyPlatformTask1.test.js",
     "test:pdf": "node tests/verifyPdfEngine.test.js"
   },
   "dependencies": {
