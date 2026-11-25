@@ -2,9 +2,16 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AdminRoute, ProtectedRoute, PublicOrAuthRoute } from './RouteGuards.jsx';
 import { LandingPage } from '../pages/Landing/LandingPage.jsx';
+import { LoginPage } from '../pages/Auth/LoginPage.jsx';
+import { RegisterPage } from '../pages/Auth/RegisterPage.jsx';
 import { ToolsHubPage } from '../pages/Tools/ToolsHubPage.jsx';
 import { ToolPreviewPage } from '../pages/Tools/ToolPreviewPage.jsx';
-import { UpcomingSectionPage } from '../pages/Shared/UpcomingSectionPage.jsx';
+import { DashboardPage } from '../pages/Dashboard/DashboardPage.jsx';
+import { DocumentHistoryPage } from '../pages/DocumentHistory/DocumentHistoryPage.jsx';
+import { ProfileManagementPage } from '../pages/ProfileManagement/ProfileManagementPage.jsx';
+import { AdminGlobalHistoryPage } from '../pages/Admin/AdminGlobalHistoryPage.jsx';
+import { AdminUsersPage } from '../pages/Admin/AdminUsersPage.jsx';
+import { AdminAuditLogsPage } from '../pages/Admin/AdminAuditLogsPage.jsx';
 import { TOOLS_REGISTRY, isToolLaunchable } from '../config/toolsRegistry.js';
 
 /**
@@ -13,7 +20,6 @@ import { TOOLS_REGISTRY, isToolLaunchable } from '../config/toolsRegistry.js';
  * ADDING A NEW TOOL ROUTE:
  *   1. Add its metadata object to `frontend/src/config/toolsRegistry.js`.
  *   2. Register its lazy page component below.
- *   Any tool without an entry here automatically falls back to `ToolPreviewPage`.
  */
 const TOOL_PAGE_COMPONENTS = {
   'invoice-generator': lazy(() =>
@@ -37,7 +43,7 @@ export function AppRouter() {
     <BrowserRouter>
       <Suspense fallback={<RouteFallback />}>
         <Routes>
-          {/* Public Landing */}
+          {/* Public Landing & Auth Pages */}
           <Route
             path="/"
             element={
@@ -46,6 +52,8 @@ export function AppRouter() {
               </PublicOrAuthRoute>
             }
           />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
           {/* Tools Hub */}
           <Route
@@ -85,7 +93,7 @@ export function AppRouter() {
             );
           })}
 
-          {/* Coming Soon / unmounted tool preview fallback (never a broken route) */}
+          {/* Coming Soon / unmounted tool preview fallback */}
           <Route
             path="/tools/:toolSlug"
             element={
@@ -100,11 +108,7 @@ export function AppRouter() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <UpcomingSectionPage
-                  title="Dashboard"
-                  description="Activity KPIs, pending invoice balances, conversion rates, and recent documents."
-                  iconName="LayoutDashboard"
-                />
+                <DashboardPage />
               </ProtectedRoute>
             }
           />
@@ -112,11 +116,7 @@ export function AppRouter() {
             path="/history"
             element={
               <ProtectedRoute>
-                <UpcomingSectionPage
-                  title="Document History"
-                  description="Unified, filterable history of your invoices and quotations."
-                  iconName="History"
-                />
+                <DocumentHistoryPage />
               </ProtectedRoute>
             }
           />
@@ -124,11 +124,7 @@ export function AppRouter() {
             path="/profile"
             element={
               <ProtectedRoute>
-                <UpcomingSectionPage
-                  title="Profile Management"
-                  description="Personal details, reusable business profile, logo, bank details, and security."
-                  iconName="UserCog"
-                />
+                <ProfileManagementPage defaultTab="personal" />
               </ProtectedRoute>
             }
           />
@@ -136,11 +132,7 @@ export function AppRouter() {
             path="/customers"
             element={
               <ProtectedRoute>
-                <UpcomingSectionPage
-                  title="Shared Customers Directory"
-                  description="Manage reusable customer billing & shipping records shared across all tools."
-                  iconName="Users"
-                />
+                <ProfileManagementPage defaultTab="customers" />
               </ProtectedRoute>
             }
           />
@@ -150,11 +142,7 @@ export function AppRouter() {
             path="/admin/history"
             element={
               <AdminRoute>
-                <UpcomingSectionPage
-                  title="Admin Global History"
-                  description="Cross-user document history across all registered tools with audit logging."
-                  iconName="Globe"
-                />
+                <AdminGlobalHistoryPage />
               </AdminRoute>
             }
           />
@@ -162,11 +150,7 @@ export function AppRouter() {
             path="/admin/users"
             element={
               <AdminRoute>
-                <UpcomingSectionPage
-                  title="Admin User Management"
-                  description="Manage platform users, document counts, roles, and account statuses."
-                  iconName="ShieldCheck"
-                />
+                <AdminUsersPage />
               </AdminRoute>
             }
           />
@@ -174,11 +158,7 @@ export function AppRouter() {
             path="/admin/audit-logs"
             element={
               <AdminRoute>
-                <UpcomingSectionPage
-                  title="Admin Audit Logs"
-                  description="Immutable governance trail of admin inspections, exports, and role changes."
-                  iconName="ScrollText"
-                />
+                <AdminAuditLogsPage />
               </AdminRoute>
             }
           />

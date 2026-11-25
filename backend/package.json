@@ -11,7 +11,8 @@
     "seed:admin": "node src/scripts/seedAdmin.js",
     "test:auth": "node tests/verifyPlatformTask1.test.js",
     "test:history": "node tests/verifyPlatformTask2.test.js",
-    "test:pdf": "node tests/verifyPdfEngine.test.js"
+    "test:pdf": "node tests/verifyPdfEngine.test.js",
+    "test:qa": "node tests/verifyPlatformFinalQA.test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

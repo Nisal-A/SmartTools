@@ -237,3 +237,27 @@ export function calculateDocumentTotals(params = {}) {
     balanceDue: fromCents(balanceDueCents),
   };
 }
+
+/**
+ * Formats a numeric currency amount safely with Intl.NumberFormat fallback.
+ *
+ * @param {number|string} amount
+ * @param {string} [currency='USD']
+ * @param {string} [locale='en-US']
+ * @returns {string}
+ */
+export function formatCurrency(amount, currency = 'USD', locale = 'en-US') {
+  const num = Number(amount);
+  const safeVal = Number.isFinite(num) ? num : 0;
+  const code = String(currency || 'USD').trim().toUpperCase();
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(safeVal);
+  } catch {
+    return `${code} ${safeVal.toFixed(2)}`;
+  }
+}

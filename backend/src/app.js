@@ -36,6 +36,7 @@ export function createApp() {
     res.status(200).json({ status: 'ok', service: 'smarttools-backend' });
   });
 
+  app.use('/api/v1/public/pdf', pdfEngineRoutes);
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/profiles', profileRoutes);
   app.use('/api/v1/customers', customerRoutes);
@@ -43,7 +44,6 @@ export function createApp() {
   app.use('/api/v1/quotations', quotationRoutes);
   app.use('/api/v1/admin', adminRoutes);
   app.use('/api/v1', documentsRoutes);
-  app.use('/api/v1/public/pdf', pdfEngineRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

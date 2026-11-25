@@ -235,10 +235,10 @@ Invoice-Qoutation-Generator/
 
 ## 9. Phase Progress Tracker
 
-- [ ] **Part 1:** Repository Audit, `MASTERPLAN.md`, Monolith Scaffold & `shared/` Package (`paperSizes.js`, `financialMath.js`, Zod schemas)
-- [ ] **Part 2:** Backend Core — MongoDB (`smart_tools_db`), JWT Auth, RBAC, Admin Seed, Profile Management & Shared Customers
-- [ ] **Part 3:** Multi-Size Puppeteer PDF Engine (`A4`, `A5`, `LETTER`, `LEGAL`, `B5`, `THERMAL_80`) & Stateless Guest PDF API
-- [ ] **Part 4:** Backend Tool Modules — Invoices, Quotations (+ Convert to Invoice), Unified User History & Admin Governance
-- [ ] **Part 5:** Frontend Shell — Dual Guest/Auth Layouts, Tools Hub, Auth Modal, Profile Management & Customers Directory
-- [ ] **Part 6:** Frontend Generators — Multi-Size Adaptive Canvas, Invoice Generator & Quotation Generator (Guest Mode + Cloud Sync)
-- [ ] **Part 7:** User Dashboard, Scoped Document History, Admin Console (Global History + Audit Logs) & Final Security QA
+- [x] **Part 1:** Repository Audit, `MASTERPLAN.md`, Monolith Scaffold & `shared/` Package (`paperSizes.js`, `financialMath.js`, Zod schemas)
+- [x] **Part 2:** Backend Core — MongoDB (`smart_tools_db`), JWT Auth, RBAC, Admin Seed, Profile Management & Shared Customers
+- [x] **Part 3:** Multi-Size Puppeteer PDF Engine (`A4`, `A5`, `LETTER`, `LEGAL`, `B5`, `THERMAL_80`) & Stateless Guest PDF API
+- [x] **Part 4:** Backend Tool Modules — Invoices, Quotations (+ Convert to Invoice), Unified User History & Admin Governance
+- [x] **Part 5:** Frontend Shell — Dual Guest/Auth Layouts, Tools Hub, Auth Modal, Profile Management & Customers Directory
+- [x] **Part 6:** Frontend Generators — Multi-Size Adaptive Canvas, Invoice Generator & Quotation Generator (Guest Mode + Cloud Sync)
+- [x] **Part 7:** User Dashboard, Scoped Document History, Admin Console (Global History + Audit Logs) & Final Security QA

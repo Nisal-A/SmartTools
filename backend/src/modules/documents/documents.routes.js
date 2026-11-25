@@ -12,15 +12,16 @@ import {
  * - `GET /api/v1/history`
  * - `GET /api/v1/dashboard/summary`
  * - `GET /api/v1/documents/:type/:id/pdf`
+ *
+ * `requireAuth` is attached per-route (rather than router-wide) so sibling
+ * public routes under `/api/v1/public/*` are never intercepted.
  */
 
 const router = Router();
 
-router.use(requireAuth);
-
-router.get('/history', getUserHistoryController);
-router.get('/dashboard/summary', getDashboardSummaryController);
-router.get('/dashboard', getDashboardSummaryController);
-router.get('/documents/:type/:id/pdf', exportDocumentPdfController);
+router.get('/history', requireAuth, getUserHistoryController);
+router.get('/dashboard/summary', requireAuth, getDashboardSummaryController);
+router.get('/dashboard', requireAuth, getDashboardSummaryController);
+router.get('/documents/:type/:id/pdf', requireAuth, exportDocumentPdfController);
 
 export default router;

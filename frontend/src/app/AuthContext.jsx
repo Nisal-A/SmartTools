@@ -1,15 +1,26 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import {
-  apiClient,
+  SESSION_EXPIRED_EVENT,
+  clearAuthStorage,
   getStoredAccessToken,
+  hasSessionHint,
+  setSessionHint,
   setStoredAccessToken,
 } from '../services/apiClient.js';
+import {
+  getMeApi,
+  loginApi,
+  logoutApi,
+  refreshApi,
+  registerApi,
+} from '../services/auth.api.js';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState(null);
   const [authModalState, setAuthModalState] = useState({
     isOpen: false,
     initialMode: 'register',
@@ -18,71 +29,122 @@ export function AuthProvider({ children }) {
     onSuccess: null,
   });
 
-  const refreshMe = useCallback(async () => {
+  const showToast = useCallback((message, tone = 'info') => {
+    setToast({ id: Date.now(), message, tone });
+  }, []);
+
+  const clearToast = useCallback(() => {
+    setToast(null);
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = window.setTimeout(() => setToast(null), 4500);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  /**
+   * Restores or refreshes the authenticated user silently.
+   * Pure guests (no stored token and no session hint flag) skip network calls
+   * completely so no 401 errors ever flash in the console.
+   */
+  const refreshUser = useCallback(async ({ force = false } = {}) => {
     const token = getStoredAccessToken();
-    if (!token) {
+    const shouldTrySilentRefresh = hasSessionHint();
+
+    if (!token && !shouldTrySilentRefresh && !force) {
       setUser(null);
-      setIsLoading(false);
+      setLoading(false);
       return null;
     }
 
     try {
-      const res = await apiClient.get('/auth/me');
-      const currentUser = res.data?.data || res.data?.user || null;
-      setUser(currentUser);
-      return currentUser;
+      if (token) {
+        const currentUser = await getMeApi();
+        setUser(currentUser);
+        setSessionHint(Boolean(currentUser));
+        return currentUser;
+      }
+
+      // Silent HttpOnly cookie refresh when session flag exists
+      const refreshed = await refreshApi();
+      if (refreshed.accessToken) {
+        setStoredAccessToken(refreshed.accessToken);
+      }
+      setUser(refreshed.user || null);
+      setSessionHint(Boolean(refreshed.user));
+      return refreshed.user || null;
     } catch {
-      setStoredAccessToken('');
+      clearAuthStorage();
       setUser(null);
       return null;
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    refreshMe();
-  }, [refreshMe]);
+    refreshUser();
+  }, [refreshUser]);
+
+  // Listen for refresh-token failure events dispatched by apiClient
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setUser(null);
+      setLoading(false);
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, []);
 
   const login = useCallback(async ({ email, password }) => {
-    const res = await apiClient.post('/auth/login', { email, password });
-    const token = res.data?.accessToken || res.data?.data?.accessToken;
-    const authedUser = res.data?.user || res.data?.data?.user;
-    if (token) setStoredAccessToken(token);
+    const { accessToken, user: authedUser } = await loginApi({ email, password });
+    if (accessToken) {
+      setStoredAccessToken(accessToken);
+    }
+    setSessionHint(true);
     setUser(authedUser || null);
     return authedUser;
   }, []);
 
   const register = useCallback(async ({ fullName, email, password, businessName }) => {
-    const res = await apiClient.post('/auth/register', {
+    const { accessToken, user: authedUser } = await registerApi({
       fullName,
       email,
       password,
       businessName,
     });
-    const token = res.data?.accessToken || res.data?.data?.accessToken;
-    const authedUser = res.data?.user || res.data?.data?.user;
-    if (token) setStoredAccessToken(token);
+    if (accessToken) {
+      setStoredAccessToken(accessToken);
+    }
+    setSessionHint(true);
     setUser(authedUser || null);
     return authedUser;
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      await apiClient.post('/auth/logout');
+      await logoutApi();
     } catch {
       // Ignore network errors during logout
     }
-    setStoredAccessToken('');
+    clearAuthStorage();
     setUser(null);
   }, []);
 
-  /** Shallow-merges fields into the signed-in user (e.g. optimistic `pinnedToolIds`). */
+  /** Shallow-merges fields into the signed-in user (e.g. optimistic `pinnedToolIds` or `fullName`). */
   const updateUser = useCallback((patch = {}) => {
     setUser((prev) => (prev ? { ...prev, ...patch } : prev));
   }, []);
 
   const openAuthModal = useCallback((options = {}) => {
+    const callback =
+      typeof options.onSuccessCallback === 'function'
+        ? options.onSuccessCallback
+        : typeof options.onSuccess === 'function'
+          ? options.onSuccess
+          : null;
+
     setAuthModalState({
       isOpen: true,
       initialMode: options.mode || 'register',
@@ -90,7 +152,7 @@ export function AuthProvider({ children }) {
       subtitle:
         options.subtitle ||
         'Sign in or create a free account to sync drafts, track payments, and manage customers.',
-      onSuccess: typeof options.onSuccess === 'function' ? options.onSuccess : null,
+      onSuccess: callback,
     });
   }, []);
 
@@ -102,20 +164,31 @@ export function AuthProvider({ children }) {
     }));
   }, []);
 
+  const isAuthenticated = Boolean(user);
+  const isAdmin = Boolean(user && user.role === 'admin');
+  const isGuest = !isAuthenticated;
+
   return (
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: Boolean(user),
-        isLoading,
+        isAuthenticated,
+        isAdmin,
+        isGuest,
+        loading,
+        isLoading: loading,
         login,
         register,
         logout,
-        refreshMe,
+        refreshUser,
+        refreshMe: refreshUser,
         updateUser,
         authModalState,
         openAuthModal,
         closeAuthModal,
+        toast,
+        showToast,
+        clearToast,
       }}
     >
       {children}
