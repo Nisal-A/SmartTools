@@ -11,8 +11,12 @@ import mongoose from 'mongoose';
  * queries, atomic counters, unique compound indexes, and transactions run identically.
  */
 
+export const DEFAULT_DB_NAME = 'smart_tools_db';
+
 let isConnected = false;
 let isInMemoryMode = false;
+let activeDbName = DEFAULT_DB_NAME;
+let dbShutdownHooksRegistered = false;
 
 // In-memory store keyed by collection name -> Map<_id_string, plainDoc>
 const memoryStore = new Map();
@@ -590,30 +594,99 @@ export function clearInMemoryDatabase() {
   memoryStore.clear();
 }
 
-export async function connectDatabase(uri) {
+function registerDbShutdownHooks() {
+  if (dbShutdownHooksRegistered) return;
+  dbShutdownHooksRegistered = true;
+
+  const closeGracefully = async () => {
+    try {
+      if (!isInMemoryMode && mongoose.connection.readyState !== 0) {
+        await mongoose.connection.close();
+      }
+      isConnected = false;
+    } catch {
+      // Ignore shutdown close errors
+    }
+  };
+
+  process.once('SIGINT', closeGracefully);
+  process.once('SIGTERM', closeGracefully);
+}
+
+function isLocalhostMongoUri(uri = '') {
+  return /^mongodb:\/\/(127\.0\.0\.1|localhost)(:|\/)/i.test(String(uri).trim());
+}
+
+/**
+ * Returns non-secret database health metadata for `/api/v1/health`.
+ */
+export function getDatabaseHealth() {
+  if (isInMemoryMode && isConnected) {
+    return {
+      database: 'connected',
+      dbName: activeDbName,
+      mode: 'in-memory',
+    };
+  }
+
+  const ready = mongoose.connection.readyState === 1;
+  return {
+    database: ready ? 'connected' : 'disconnected',
+    dbName: mongoose.connection.name || activeDbName || DEFAULT_DB_NAME,
+  };
+}
+
+/**
+ * Connects Mongoose to MongoDB (`smart_tools_db`) with Atlas-hardened timeouts and pooling.
+ * Never falls back to in-memory mode in `production` or when `options.allowInMemoryFallback === false`.
+ *
+ * @param {string} [uri]
+ * @param {{ allowInMemoryFallback?: boolean }} [options]
+ */
+export async function connectDatabase(uri, options = {}) {
+  registerDbShutdownHooks();
+
   if (isConnected) {
-    return { isConnected, isInMemoryMode };
+    return { isConnected, isInMemoryMode, dbName: activeDbName };
   }
 
   const mongoUri =
-    uri || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/smart_tools_db';
+    uri || process.env.MONGODB_URI || `mongodb://127.0.0.1:27017/${DEFAULT_DB_NAME}`;
+
+  const isProd = process.env.NODE_ENV === 'production';
+  const allowFallback =
+    !isProd && options.allowInMemoryFallback !== false;
+
+  // Use fast 2.5s timeout only for offline localhost in test/dev; full 10s for Atlas / production
+  const selectionTimeoutMs =
+    !isProd && isLocalhostMongoUri(mongoUri) && options.allowInMemoryFallback !== false
+      ? 2500
+      : 10000;
 
   try {
     await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 2000,
+      dbName: DEFAULT_DB_NAME,
+      serverSelectionTimeoutMS: selectionTimeoutMs,
+      socketTimeoutMS: 45000,
+      maxPoolSize: 10,
     });
     isConnected = true;
     isInMemoryMode = false;
-    return { isConnected, isInMemoryMode };
-  } catch {
+    activeDbName = mongoose.connection.name || DEFAULT_DB_NAME;
+    return { isConnected, isInMemoryMode, dbName: activeDbName };
+  } catch (err) {
+    if (!allowFallback) {
+      throw err;
+    }
     enableInMemoryMongooseEngine();
-    return { isConnected: true, isInMemoryMode: true };
+    activeDbName = DEFAULT_DB_NAME;
+    return { isConnected: true, isInMemoryMode: true, dbName: activeDbName };
   }
 }
 
 export async function disconnectDatabase() {
   if (!isInMemoryMode && mongoose.connection.readyState !== 0) {
-    await mongoose.disconnect();
+    await mongoose.connection.close();
   }
   isConnected = false;
 }

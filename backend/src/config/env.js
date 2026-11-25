@@ -5,6 +5,21 @@ dotenv.config();
 const NODE_ENVS = ['development', 'production', 'test'];
 const DEFAULT_MONGODB_URI = 'mongodb://127.0.0.1:27017/smart_tools_db';
 const DEFAULT_CLIENT_ORIGIN = 'http://localhost:5173';
+export const TARGET_DB_NAME = 'smart_tools_db';
+
+export const ALWAYS_REQUIRED_ENV_KEYS = [
+  'MONGODB_URI',
+  'JWT_ACCESS_SECRET',
+  'JWT_REFRESH_SECRET',
+  'CLIENT_URL',
+];
+
+export const PRODUCTION_ONLY_REQUIRED_ENV_KEYS = [
+  'CLOUDINARY_CLOUD_NAME',
+  'CLOUDINARY_API_KEY',
+  'CLOUDINARY_API_SECRET',
+  'KEEPALIVE_SECRET',
+];
 
 const NUMERIC_VARS = {
   PORT: { default: 5000, min: 1, max: 65535 },
@@ -62,38 +77,83 @@ const parseOriginList = (raw, errors) => {
 };
 
 /**
- * Pure environment validation helper covering SmartTools platform & SEO Analyzer config.
+ * Checks whether a MongoDB connection string explicitly specifies `/smart_tools_db`
+ * in its path segment before `?` (never returns or logs the URI itself).
+ *
+ * @param {string} uri
+ * @param {string} [expectedDb='smart_tools_db']
+ * @returns {boolean}
+ */
+export function hasExplicitMongoDbName(uri, expectedDb = TARGET_DB_NAME) {
+  if (typeof uri !== 'string' || !uri.trim()) return false;
+  const match = uri.trim().match(/^mongodb(?:\+srv)?:\/\/[^/]+\/([^?]*)/i);
+  if (!match) return false;
+  const dbSegment = (match[1] || '').trim();
+  return dbSegment === expectedDb;
+}
+
+/**
+ * Pure environment validation helper covering SmartTools platform & Render production rules.
+ * Never includes secret values in `errors`, `missingKeys`, or `warnings`.
  *
  * @param {Record<string, string | undefined>} source
- * @param {{ requireMongoUri?: boolean }} [options]
- * @returns {{ env: object, errors: string[] }}
+ * @param {{ requireMongoUri?: boolean, strictProduction?: boolean }} [options]
+ * @returns {{ env: object, errors: string[], missingKeys: string[], warnings: string[] }}
  */
 export const validateEnv = (source = {}, options = {}) => {
   const errors = [];
+  const missingKeys = [];
+  const warnings = [];
 
   const nodeEnv = readString(source, 'NODE_ENV') || 'development';
   if (!NODE_ENVS.includes(nodeEnv)) {
     errors.push(`NODE_ENV must be one of ${NODE_ENVS.join(', ')} (received "${nodeEnv}")`);
   }
 
+  const isProd = nodeEnv === 'production' || options.strictProduction === true;
+
+  // Check required keys
   const rawMongoUri = readString(source, 'MONGODB_URI');
+  const rawJwtAccess = readString(source, 'JWT_ACCESS_SECRET');
+  const rawJwtRefresh = readString(source, 'JWT_REFRESH_SECRET');
+  const rawClientUrl =
+    readString(source, 'CLIENT_URL') ||
+    readString(source, 'FRONTEND_ORIGIN') ||
+    readString(source, 'CLIENT_ORIGIN');
+
+  if (isProd) {
+    if (!rawMongoUri) missingKeys.push('MONGODB_URI');
+    if (!rawJwtAccess) missingKeys.push('JWT_ACCESS_SECRET');
+    if (!rawJwtRefresh) missingKeys.push('JWT_REFRESH_SECRET');
+    if (!readString(source, 'CLIENT_URL')) missingKeys.push('CLIENT_URL');
+
+    for (const key of PRODUCTION_ONLY_REQUIRED_ENV_KEYS) {
+      if (!readString(source, key)) {
+        missingKeys.push(key);
+      }
+    }
+
+    if (missingKeys.length > 0) {
+      errors.push(`Missing required production environment variables: ${missingKeys.join(', ')}`);
+    }
+  }
+
   let mongoUri = rawMongoUri;
   if (rawMongoUri === '') {
-    if (options.requireMongoUri) {
+    if (options.requireMongoUri && !missingKeys.includes('MONGODB_URI')) {
       errors.push('MONGODB_URI is required');
-    } else {
+    } else if (!isProd) {
       mongoUri = DEFAULT_MONGODB_URI;
     }
   } else if (!/^mongodb(\+srv)?:\/\//.test(rawMongoUri)) {
     errors.push('MONGODB_URI must start with mongodb:// or mongodb+srv://');
+  } else if (!hasExplicitMongoDbName(rawMongoUri, TARGET_DB_NAME)) {
+    warnings.push(
+      `MONGODB_URI does not explicitly include "/${TARGET_DB_NAME}" in its path; Mongoose will enforce dbName="${TARGET_DB_NAME}" via connection options.`
+    );
   }
 
-  const rawOrigin =
-    readString(source, 'CLIENT_URL') ||
-    readString(source, 'FRONTEND_ORIGIN') ||
-    readString(source, 'CLIENT_ORIGIN') ||
-    DEFAULT_CLIENT_ORIGIN;
-  const clientOrigin = parseOriginList(rawOrigin, errors);
+  const clientOrigin = parseOriginList(rawClientUrl || DEFAULT_CLIENT_ORIGIN, errors);
 
   const numeric = Object.fromEntries(
     Object.entries(NUMERIC_VARS).map(([name, rule]) => [
@@ -105,20 +165,38 @@ export const validateEnv = (source = {}, options = {}) => {
   const env = Object.freeze({
     NODE_ENV: nodeEnv,
     MONGODB_URI: mongoUri,
+    CLIENT_URL: clientOrigin,
     CLIENT_ORIGIN: clientOrigin,
     FRONTEND_ORIGIN: clientOrigin,
-    JWT_ACCESS_SECRET:
-      readString(source, 'JWT_ACCESS_SECRET') || 'smarttools-dev-jwt-access-secret-2026',
-    JWT_REFRESH_SECRET:
-      readString(source, 'JWT_REFRESH_SECRET') || 'smarttools-dev-jwt-refresh-secret-2026',
+    JWT_ACCESS_SECRET: rawJwtAccess || 'smarttools-dev-jwt-access-secret-2026',
+    JWT_REFRESH_SECRET: rawJwtRefresh || 'smarttools-dev-jwt-refresh-secret-2026',
+    KEEPALIVE_SECRET: readString(source, 'KEEPALIVE_SECRET'),
+    CLOUDINARY_CLOUD_NAME: readString(source, 'CLOUDINARY_CLOUD_NAME'),
+    CLOUDINARY_API_KEY: readString(source, 'CLOUDINARY_API_KEY'),
+    CLOUDINARY_API_SECRET: readString(source, 'CLOUDINARY_API_SECRET'),
     ...numeric,
     isProduction: nodeEnv === 'production',
     isTest: nodeEnv === 'test',
   });
 
-  return { env, errors };
+  return { env, errors, missingKeys, warnings };
 };
 
-const { env } = validateEnv(process.env, { requireMongoUri: false });
+const validation = validateEnv(process.env, { requireMongoUri: false });
 
-export default env;
+for (const warning of validation.warnings) {
+  if (process.env.NODE_ENV !== 'test') {
+    console.warn(`[SmartTools Env Warning] ${warning}`);
+  }
+}
+
+if (validation.env.isProduction && validation.errors.length > 0) {
+  // Fail fast in production without ever printing secret values
+  console.error(
+    '[SmartTools Env Fatal] Production environment validation failed:\n' +
+      validation.errors.map((err) => `  - ${err}`).join('\n')
+  );
+  process.exit(1);
+}
+
+export default validation.env;

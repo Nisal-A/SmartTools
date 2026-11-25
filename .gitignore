@@ -1,9 +1,20 @@
 node_modules/
+**/node_modules/
 dist/
+**/dist/
 build/
+**/build/
+coverage/
+**/coverage/
+
+# Ignore all .env files everywhere while keeping .env.example templates tracked
 .env
-.env.local
-.env.*.local
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
 *.log
 .DS_Store
-coverage/
+_tmp_*/

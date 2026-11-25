@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import { getDatabaseHealth } from './config/db.js';
 import authRoutes from './modules/authentication/auth.routes.js';
 import profileRoutes from './modules/profiles/profiles.routes.js';
 import customerRoutes from './modules/customers/customers.routes.js';
@@ -103,7 +104,14 @@ export function createApp() {
   app.use(express.json({ limit: '5mb' }));
 
   app.get('/api/v1/health', (_req, res) => {
-    res.status(200).json({ status: 'ok', service: 'smarttools-backend' });
+    const dbHealth = getDatabaseHealth();
+    res.status(200).json({
+      status: 'ok',
+      service: 'smarttools-backend',
+      database: dbHealth.database,
+      dbName: dbHealth.dbName,
+      uptime: Math.round(process.uptime()),
+    });
   });
 
   app.use('/api/v1/public/pdf', pdfEngineRoutes);

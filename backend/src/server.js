@@ -1,6 +1,7 @@
 import 'dotenv/config';
+import './config/env.js';
 import { createApp } from './app.js';
-import { connectDatabase } from './config/db.js';
+import { connectDatabase, disconnectDatabase } from './config/db.js';
 import { shutdownPuppeteerPool } from './config/puppeteerPool.js';
 
 const PORT = Number(process.env.PORT) || 5000;
@@ -12,13 +13,13 @@ async function startServer() {
 
   const server = app.listen(PORT, HOST, () => {
     console.log(
-      `[SmartTools Backend] Listening on http://${HOST}:${PORT} (inMemoryDB=${dbStatus.isInMemoryMode})`
+      `[SmartTools Backend] Listening on http://${HOST}:${PORT} (db=${dbStatus.dbName}, inMemoryDB=${dbStatus.isInMemoryMode})`
     );
   });
 
   const gracefulExit = async () => {
     server.close();
-    await shutdownPuppeteerPool();
+    await Promise.allSettled([shutdownPuppeteerPool(), disconnectDatabase()]);
     process.exit(0);
   };
 

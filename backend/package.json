@@ -14,6 +14,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "seed:admin": "node src/scripts/seedAdmin.js",
+    "verify:deploy": "node src/scripts/verifyDeployReadiness.js",
     "test:auth": "node tests/verifyPlatformTask1.test.js",
     "test:history": "node tests/verifyPlatformTask2.test.js",
     "test:pdf": "node tests/verifyPdfEngine.test.js",
