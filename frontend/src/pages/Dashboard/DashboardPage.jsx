@@ -36,6 +36,7 @@ const STATUS_BADGE_MAP = {
   rejected: 'bg-rose-50 text-rose-700 ring-rose-200',
   expired: 'bg-amber-50 text-amber-700 ring-amber-200',
   converted: 'bg-indigo-50 text-indigo-700 ring-indigo-200',
+  completed: 'bg-sky-50 text-sky-700 ring-sky-200',
 };
 
 function StatusBadge({ status }) {
@@ -52,6 +53,9 @@ function StatusBadge({ status }) {
 }
 
 function getEditRoute(doc) {
+  if (doc.toolType === 'seo') {
+    return `/tools/seo-analyzer/audits/${doc.id}`;
+  }
   if (doc.toolType === 'quotation') {
     return `/tools/quotation-generator/${doc.id}`;
   }
@@ -301,9 +305,11 @@ export function DashboardPage() {
                     <td className="px-4 py-3">
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                          doc.toolType === 'quotation'
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : 'bg-indigo-50 text-indigo-700'
+                          doc.toolType === 'seo'
+                            ? 'bg-sky-50 text-sky-700'
+                            : doc.toolType === 'quotation'
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : 'bg-indigo-50 text-indigo-700'
                         }`}
                       >
                         {doc.toolType === 'quotation' ? (
@@ -311,12 +317,18 @@ export function DashboardPage() {
                         ) : (
                           <FileText className="h-3 w-3" />
                         )}
-                        {doc.toolType === 'quotation' ? 'Quotation' : 'Invoice'}
+                        {doc.toolType === 'seo'
+                          ? 'SEO Audit'
+                          : doc.toolType === 'quotation'
+                            ? 'Quotation'
+                            : 'Invoice'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-700">{doc.customerName}</td>
                     <td className="px-4 py-3 font-semibold text-slate-900">
-                      {formatCurrency(doc.grandTotal || 0, doc.currency || 'USD')}
+                      {doc.toolType === 'seo'
+                        ? `${doc.overallScore ?? doc.grandTotal ?? 0}/100`
+                        : formatCurrency(doc.grandTotal || 0, doc.currency || 'USD')}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={doc.status} />
@@ -334,19 +346,21 @@ export function DashboardPage() {
                         >
                           <ExternalLink className="h-3.5 w-3.5" /> Open
                         </Link>
-                        <button
-                          type="button"
-                          disabled={downloadingId === doc.id}
-                          onClick={() => handleDownloadPdf(doc)}
-                          className="inline-flex items-center gap-1 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
-                        >
-                          {downloadingId === doc.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Download className="h-3.5 w-3.5" />
-                          )}
-                          PDF
-                        </button>
+                        {doc.toolType !== 'seo' && (
+                          <button
+                            type="button"
+                            disabled={downloadingId === doc.id}
+                            onClick={() => handleDownloadPdf(doc)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                          >
+                            {downloadingId === doc.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Download className="h-3.5 w-3.5" />
+                            )}
+                            PDF
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

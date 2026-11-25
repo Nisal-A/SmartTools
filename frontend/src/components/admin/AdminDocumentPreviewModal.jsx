@@ -57,8 +57,14 @@ export function AdminDocumentPreviewModal({ target, onClose }) {
 
   const doc = data?.document || null;
   const owner = data?.owner || target.owner || null;
+  const isSeo = target.toolType === 'seo';
   const isQuote = target.toolType === 'quotation';
-  const docNumber = doc?.invoiceNumber || doc?.quotationNumber || target.documentNumber;
+  const docNumber =
+    doc?.invoiceNumber ||
+    doc?.quotationNumber ||
+    doc?.finalUrl ||
+    doc?.url ||
+    target.documentNumber;
 
   const handleExportPdf = async () => {
     setIsExporting(true);
@@ -137,6 +143,68 @@ export function AdminDocumentPreviewModal({ target, onClose }) {
           ) : errorMsg ? (
             <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {errorMsg}
+            </div>
+          ) : doc && isSeo ? (
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-4">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[10px] font-bold uppercase text-slate-400">Overall Score</p>
+                  <p className="mt-1 text-lg font-extrabold text-sky-700">
+                    {doc.overallScore ?? 0}/100
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[10px] font-bold uppercase text-slate-400">Coverage</p>
+                  <p className="mt-1 text-sm font-bold text-slate-800">
+                    {doc.scoreCoverage ?? 0}%
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[10px] font-bold uppercase text-slate-400">HTTP Status</p>
+                  <p className="mt-1 text-sm font-bold text-slate-800">
+                    {doc.responseStatus ?? 200}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[10px] font-bold uppercase text-slate-400">Guest Audit</p>
+                  <p className="mt-1 text-sm font-bold text-slate-800">
+                    {doc.isGuestAudit ? 'Yes (Anonymous)' : 'No (Account)'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 p-4 text-xs">
+                <p className="font-bold text-slate-900">{doc.pageTitle || 'Untitled Web Page'}</p>
+                <p className="mt-1 break-all text-sky-700">{doc.finalUrl || doc.url}</p>
+                {doc.metaDescription && (
+                  <p className="mt-2 text-slate-600">{doc.metaDescription}</p>
+                )}
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-slate-200 bg-slate-50 font-bold uppercase text-slate-500">
+                    <tr>
+                      <th className="px-3.5 py-2.5">SEO Check</th>
+                      <th className="px-3 py-2.5">Category</th>
+                      <th className="px-3 py-2.5">Status</th>
+                      <th className="px-3.5 py-2.5 text-right">Points</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(doc.seoChecks || []).map((chk) => (
+                      <tr key={chk.id}>
+                        <td className="px-3.5 py-2 font-medium text-slate-800">{chk.label}</td>
+                        <td className="px-3 py-2 text-slate-500">{chk.category}</td>
+                        <td className="px-3 py-2 uppercase font-bold text-slate-700">{chk.status}</td>
+                        <td className="px-3.5 py-2 text-right font-semibold text-slate-900">
+                          {chk.earnedPoints}/{chk.maxPoints}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ) : doc ? (
             <div className="space-y-5">
@@ -286,20 +354,22 @@ export function AdminDocumentPreviewModal({ target, onClose }) {
             >
               Close
             </button>
-            <button
-              type="button"
-              disabled={isExporting || isLoading}
-              onClick={handleExportPdf}
-              data-testid="admin-modal-export-pdf-btn"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {isExporting ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              Export PDF
-            </button>
+            {!isSeo && (
+              <button
+                type="button"
+                disabled={isExporting || isLoading}
+                onClick={handleExportPdf}
+                data-testid="admin-modal-export-pdf-btn"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {isExporting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                Export PDF
+              </button>
+            )}
           </div>
         </div>
       </div>

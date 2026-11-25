@@ -115,7 +115,18 @@ Invoices and Quotations adapt typography, margins, table column density, and foo
 - Save, edit, duplicate, status tracking (`draft`, `sent`, `accepted`, `rejected`, `expired`, `converted`).
 - **Convert Accepted Quotation to Invoice:** Atomic MongoDB transaction linking `sourceQuotationId` and `convertedInvoiceId` for logged-in users; local draft handoff for guests.
 
-### C. Profile Management (Separate Section)
+### C. SEO Analyzer (Tool 03 — Independent, Natively Integrated)
+- Separate modular tool (`backend/src/modules/seo-analyzer/`, `frontend/src/pages/SeoAnalyzer/`, `frontend/src/components/seo/`) with its own isolated `seo_audits` collection in `smart_tools_db`.
+- SSRF-hardened fetcher (`safeFetch.js`, `safeLookup.js`, `ipClassifier.js`, `urlValidator.js`): blocks loopback, private RFC 1918, CGNAT, link-local/cloud metadata (`169.254.169.254`), IPv6 ULA, non-80/443 ports, and DNS rebinding across every redirect hop, enforcing strict timeout (10s) and 2 MB decompressed byte caps.
+- 18 deterministic on-page & technical SEO checks across 6 weighted categories (100 points total), interactive Recharts visualizations, prioritized recommendations, and CSV/print report export.
+- **Privacy & RBAC Alignment:**
+  - `POST /api/v1/seo/analyze`: Guest + Authenticated (`optionalAuth` + `clientIdentity` + rate limiter); stores `userId: req.user?.id || null` and `isGuestAudit: !req.user`.
+  - `GET /api/v1/seo/stats`: Public aggregate metrics only (total audits, overall average score, category averages) — zero individual URLs or user PII.
+  - `GET /api/v1/seo/audits`: `requireAuth`, strictly scoped to `req.user.id`.
+  - `GET /api/v1/seo/audits/:id`: Owner, Admin (`role === 'admin'`), or matching guest `X-Client-Id` session (`404` otherwise).
+  - Registered via the `seo` adapter in `historyAdapters.js` and `toolsRegistry.js` (Category: `marketing`, Guest Ready, Default Pinned), rendering inside `SeoToolShell.jsx` within SmartTools' dual `GuestShellLayout` / `AppShellLayout`.
+
+### D. Profile Management (Separate Section)
 - Personal info (`user_profiles`), Business info (`business_profiles`), Cloudinary logo upload (`file_metadata`).
 - Contact info, address, business/tax registration details, bank account details.
 - Reusable defaults: default currency, default tax rate, default payment terms, default invoice size, default quotation size.
@@ -137,6 +148,7 @@ One MongoDB database with strictly separated collections. Every user-owned docum
 | **Invoice Generator** | `invoice_payments` | `userId`, `invoiceId`, `amount`, `paymentDate`, `method`, `referenceNo`, `notes` | `{ invoiceId: 1 }`, `{ userId: 1 }` |
 | **Quotation Generator** | `quotations` | `userId`, `customerId`, `quotationNumber`, `issueDate`, `validUntil`, `currency`, `status`, `pageSize`, `orientation`, `templateKey`, `businessSnapshot{}`, `customerSnapshot{}`, `subtotal`, `discount{}`, `taxTotal`, `grandTotal`, `deliveryTerms`, `paymentTerms`, `notes`, `convertedInvoiceId` | `{ userId: 1, createdAt: -1 }`, `{ userId: 1, quotationNumber: 1 }` (unique), `{ status: 1 }` |
 | **Quotation Generator** | `quotation_items` | `userId`, `quotationId`, `sortOrder`, `name`, `description`, `quantity`, `unit`, `unitPrice`, `taxRate`, `discount`, `lineTotal` | `{ quotationId: 1, sortOrder: 1 }`, `{ userId: 1 }` |
+| **SEO Analyzer** | `seo_audits` | `userId` (nullable), `isGuestAudit`, `clientId`, `ownerId`, `url`, `finalUrl`, `overallScore`, `scoreCoverage`, `categoryScores[]`, `summary{}`, `seoChecks[]`, `recommendations[]`, `details{}` | `{ userId: 1, createdAt: -1 }`, `{ ownerId: 1, analyzedAt: -1 }`, `{ analyzedAt: -1 }` |
 | **Shared Resources** | `customers` | `userId`, `name`, `companyName`, `email`, `phone`, `billingAddress{}`, `shippingAddress{}`, `taxId`, `notes` | `{ userId: 1, name: 1 }`, `{ userId: 1, email: 1 }` |
 | **Shared Resources** | `document_templates` | `key`, `toolType`, `name`, `accentColor`, `supportedSizes[]`, `isSystemDefault` | `{ toolType: 1, key: 1 }` |
 | **Shared Resources** | `file_metadata` | `userId`, `cloudinaryPublicId`, `secureUrl`, `mimeType`, `bytes`, `entityType` | `{ userId: 1, entityType: 1 }` |

@@ -34,11 +34,13 @@ import {
   deleteQuotation,
   duplicateQuotation,
 } from '../../services/quotations.api.js';
+import { deleteAudit as deleteSeoAudit } from '../../services/seo.api.js';
 
 const TOOL_TABS = [
   { id: 'all', label: 'All Documents' },
   { id: 'invoice', label: 'Invoices' },
   { id: 'quotation', label: 'Quotations' },
+  { id: 'seo', label: 'SEO Audits' },
 ];
 
 const STATUS_OPTIONS = [
@@ -53,6 +55,7 @@ const STATUS_OPTIONS = [
   'rejected',
   'expired',
   'converted',
+  'completed',
 ];
 
 const STATUS_BADGE_MAP = {
@@ -66,6 +69,7 @@ const STATUS_BADGE_MAP = {
   rejected: 'bg-rose-50 text-rose-700 ring-rose-200',
   expired: 'bg-amber-50 text-amber-700 ring-amber-200',
   converted: 'bg-indigo-50 text-indigo-700 ring-indigo-200',
+  completed: 'bg-sky-50 text-sky-700 ring-sky-200',
 };
 
 function getPaperLabel(sizeCode) {
@@ -182,7 +186,9 @@ export function DocumentHistoryPage() {
     const target = confirmDeleteDoc;
     setBusyKey(`del-${target.id}`);
     try {
-      if (target.toolType === 'quotation') {
+      if (target.toolType === 'seo') {
+        await deleteSeoAudit(target.id);
+      } else if (target.toolType === 'quotation') {
         await deleteQuotation(target.id);
       } else {
         await deleteInvoice(target.id);
@@ -346,10 +352,13 @@ export function DocumentHistoryPage() {
                     STATUS_BADGE_MAP[String(doc.status || 'draft').toLowerCase()] ||
                     STATUS_BADGE_MAP.draft;
                   const editPath =
-                    doc.toolType === 'quotation'
-                      ? `/tools/quotation-generator/${doc.id}`
-                      : `/tools/invoice-generator/${doc.id}`;
-                  const allowedSizes = getSupportedSizeCodesForTool(doc.toolType);
+                    doc.toolType === 'seo'
+                      ? `/tools/seo-analyzer/audits/${doc.id}`
+                      : doc.toolType === 'quotation'
+                        ? `/tools/quotation-generator/${doc.id}`
+                        : `/tools/invoice-generator/${doc.id}`;
+                  const isSeo = doc.toolType === 'seo';
+                  const allowedSizes = isSeo ? [] : getSupportedSizeCodesForTool(doc.toolType);
 
                   return (
                     <tr
@@ -363,22 +372,30 @@ export function DocumentHistoryPage() {
                       <td className="px-3 py-3">
                         <span
                           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                            doc.toolType === 'quotation'
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : 'bg-indigo-50 text-indigo-700'
+                            isSeo
+                              ? 'bg-sky-50 text-sky-700'
+                              : doc.toolType === 'quotation'
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-indigo-50 text-indigo-700'
                           }`}
                         >
-                          {doc.toolType === 'quotation' ? 'Quotation' : 'Invoice'}
+                          {isSeo
+                            ? 'SEO Audit'
+                            : doc.toolType === 'quotation'
+                              ? 'Quotation'
+                              : 'Invoice'}
                         </span>
                       </td>
                       <td className="px-3 py-3 text-slate-700">{doc.customerName}</td>
                       <td className="px-3 py-3">
                         <span className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                          {getPaperLabel(doc.pageSize)}
+                          {isSeo ? `Coverage ${doc.scoreCoverage ?? 0}%` : getPaperLabel(doc.pageSize)}
                         </span>
                       </td>
                       <td className="px-3 py-3 font-semibold text-slate-900">
-                        {formatCurrency(doc.grandTotal || 0, doc.currency || 'USD')}
+                        {isSeo
+                          ? `${doc.overallScore ?? doc.grandTotal ?? 0}/100`
+                          : formatCurrency(doc.grandTotal || 0, doc.currency || 'USD')}
                       </td>
                       <td className="px-3 py-3">
                         <span
@@ -403,58 +420,62 @@ export function DocumentHistoryPage() {
                           </Link>
 
                           {/* Download PDF with optional paper size override */}
-                          <div className="relative">
+                          {!isSeo && (
+                            <div className="relative">
+                              <button
+                                type="button"
+                                disabled={busyKey === `pdf-${doc.id}`}
+                                onClick={() =>
+                                  setPdfSizeMenuDocId((prev) =>
+                                    prev === doc.id ? null : doc.id
+                                  )
+                                }
+                                title="Download PDF (choose paper size)"
+                                className="rounded-lg p-1.5 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50"
+                              >
+                                {busyKey === `pdf-${doc.id}` ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Download className="h-4 w-4" />
+                                )}
+                              </button>
+
+                              {pdfSizeMenuDocId === doc.id && (
+                                <div className="absolute right-0 top-full z-30 mt-1 w-40 rounded-xl border border-slate-200 bg-white py-1 text-left shadow-xl">
+                                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                    Export Size
+                                  </div>
+                                  {allowedSizes.map((sizeCode) => (
+                                    <button
+                                      key={sizeCode}
+                                      type="button"
+                                      onClick={() => handleDownloadPdf(doc, sizeCode)}
+                                      className="flex w-full items-center justify-between px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+                                    >
+                                      <span>{getPaperLabel(sizeCode)}</span>
+                                      {sizeCode === doc.pageSize && (
+                                        <span className="text-[10px] font-bold text-indigo-600">
+                                          Default
+                                        </span>
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {!isSeo && (
                             <button
                               type="button"
-                              disabled={busyKey === `pdf-${doc.id}`}
-                              onClick={() =>
-                                setPdfSizeMenuDocId((prev) =>
-                                  prev === doc.id ? null : doc.id
-                                )
-                              }
-                              title="Download PDF (choose paper size)"
-                              className="rounded-lg p-1.5 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50"
+                              disabled={busyKey === `dup-${doc.id}`}
+                              onClick={() => handleDuplicate(doc)}
+                              title="Duplicate"
+                              className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-50"
                             >
-                              {busyKey === `pdf-${doc.id}` ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Download className="h-4 w-4" />
-                              )}
+                              <Copy className="h-4 w-4" />
                             </button>
-
-                            {pdfSizeMenuDocId === doc.id && (
-                              <div className="absolute right-0 top-full z-30 mt-1 w-40 rounded-xl border border-slate-200 bg-white py-1 text-left shadow-xl">
-                                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                  Export Size
-                                </div>
-                                {allowedSizes.map((sizeCode) => (
-                                  <button
-                                    key={sizeCode}
-                                    type="button"
-                                    onClick={() => handleDownloadPdf(doc, sizeCode)}
-                                    className="flex w-full items-center justify-between px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
-                                  >
-                                    <span>{getPaperLabel(sizeCode)}</span>
-                                    {sizeCode === doc.pageSize && (
-                                      <span className="text-[10px] font-bold text-indigo-600">
-                                        Default
-                                      </span>
-                                    )}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          <button
-                            type="button"
-                            disabled={busyKey === `dup-${doc.id}`}
-                            onClick={() => handleDuplicate(doc)}
-                            title="Duplicate"
-                            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-50"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </button>
+                          )}
 
                           {doc.toolType === 'quotation' &&
                             doc.status !== 'converted' && (

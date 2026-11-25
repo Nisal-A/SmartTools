@@ -159,11 +159,17 @@ export async function getAdminGlobalHistory(adminUser, query = {}, ipAddress = '
 
   const combined = rawAdapterEntries
     .map(({ adapter, doc }) => {
-      const owner = ownerMap.get(String(doc.userId)) || {
-        id: String(doc.userId),
-        email: 'unknown@user',
-        fullName: 'Unknown User',
-      };
+      const owner = !doc.userId
+        ? {
+            id: 'guest',
+            email: 'guest@anonymous',
+            fullName: 'Guest Visitor',
+          }
+        : ownerMap.get(String(doc.userId)) || {
+            id: String(doc.userId),
+            email: 'unknown@user',
+            fullName: 'Unknown User',
+          };
       return adapter.toHistoryDTO(doc, owner);
     })
     .sort((a, b) => {
@@ -233,12 +239,18 @@ export async function inspectAdminUserDocument(
     allowAdmin: true,
   });
 
-  const ownerMap = await buildOwnerLookupMap([fullDoc.userId]);
-  const owner = ownerMap.get(String(fullDoc.userId)) || {
-    id: String(fullDoc.userId),
-    email: '',
-    fullName: '',
-  };
+  const ownerMap = await buildOwnerLookupMap(fullDoc.userId ? [fullDoc.userId] : []);
+  const owner = !fullDoc.userId
+    ? {
+        id: 'guest',
+        email: 'guest@anonymous',
+        fullName: 'Guest Visitor',
+      }
+    : ownerMap.get(String(fullDoc.userId)) || {
+        id: String(fullDoc.userId),
+        email: '',
+        fullName: '',
+      };
 
   await recordAdminAuditLog({
     adminUserId: adminUser.id,

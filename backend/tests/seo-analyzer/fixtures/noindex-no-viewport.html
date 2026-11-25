@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Noindex Page Missing Viewport and Lang Attributes</title>
+    <meta
+      name="description"
+      content="This fixture tests technical failures including noindex in meta robots, missing viewport tag, missing html lang attribute, relative canonical, and broken links."
+    />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="canonical" href="/relative-canonical-path" />
+  </head>
+  <body>
+    <h2>Page Starts Without Any H1 Heading</h2>
+    <a href="">Empty href</a>
+    <a href="#">Hash only</a>
+    <a href="javascript:alert(1)">Script link 1</a>
+    <a href="javascript:void(0)">Script link 2</a>
+  </body>
+</html>

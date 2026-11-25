@@ -28,6 +28,9 @@ const TOOL_PAGE_COMPONENTS = {
   'quotation-generator': lazy(() =>
     import('../pages/QuotationGenerator/QuotationGeneratorPage.jsx')
   ),
+  'seo-analyzer': lazy(() =>
+    import('../pages/SeoAnalyzer/SeoToolShell.jsx')
+  ),
 };
 
 function RouteFallback() {
@@ -65,12 +68,28 @@ export function AppRouter() {
             }
           />
 
-          {/* Dynamic registry-driven active tool routes (+ optional /:id record routes) */}
+          {/* Dynamic registry-driven active tool routes (+ optional /:id record routes or nested tool splat) */}
           {TOOLS_REGISTRY.filter(
             (tool) => isToolLaunchable(tool) && Boolean(TOOL_PAGE_COMPONENTS[tool.id])
           ).map((tool) => {
             const ToolPage = TOOL_PAGE_COMPONENTS[tool.id];
             const Wrapper = tool.supportsGuestMode ? PublicOrAuthRoute : ProtectedRoute;
+            const usesNestedRouter = tool.id === 'seo-analyzer';
+
+            if (usesNestedRouter) {
+              return (
+                <Route
+                  key={tool.id}
+                  path={`${tool.route}/*`}
+                  element={
+                    <Wrapper>
+                      <ToolPage />
+                    </Wrapper>
+                  }
+                />
+              );
+            }
+
             return (
               <React.Fragment key={tool.id}>
                 <Route

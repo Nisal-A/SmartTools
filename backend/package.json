@@ -12,10 +12,13 @@
     "test:auth": "node tests/verifyPlatformTask1.test.js",
     "test:history": "node tests/verifyPlatformTask2.test.js",
     "test:pdf": "node tests/verifyPdfEngine.test.js",
+    "test:seo": "node --test tests/seo-analyzer/unit/*.test.js tests/seo-analyzer/integration/*.test.js",
     "test:qa": "node tests/verifyPlatformFinalQA.test.js"
   },
   "dependencies": {
+    "axios": "^1.21.1",
     "bcryptjs": "^2.4.3",
+    "cheerio": "^1.2.0",
     "cloudinary": "^2.5.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -28,5 +31,8 @@
     "multer": "^1.4.5-lts.1",
     "puppeteer": "^23.7.1",
     "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "supertest": "^7.3.2"
   }
 }

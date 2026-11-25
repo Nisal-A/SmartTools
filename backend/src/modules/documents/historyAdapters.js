@@ -10,16 +10,16 @@ import {
   generateSavedQuotationPdf,
   applyExpiredValidityFlag,
 } from '../quotations/quotations.service.js';
+import { SeoAudit } from '../seo-analyzer/models/seoAudit.model.js';
+import { getAuditById as getSeoAuditById } from '../seo-analyzer/services/auditService.js';
+import { AppError } from '../../utils/AppError.js';
 
 /**
  * Extensible Document History Adapter Registry (`historyAdapters.js`)
  *
- * Maps each independent tool collection (`invoices`, `quotations`, and any future tool)
+ * Maps each independent tool collection (`invoices`, `quotations`, `seo_audits`, and any future tool)
  * into a normalized History DTO:
  * `{ id, toolType, documentNumber, customerName, currency, grandTotal, pageSize, status, createdAt, updatedAt, owner?: { id, email, fullName } }`
- *
- * Future tools plug into Unified Document History and Admin Global History simply by calling
- * `registerHistoryAdapter(...)` without modifying controller or pagination logic.
  */
 
 const adapterRegistry = new Map();
@@ -54,7 +54,6 @@ function buildCommonMongoFilter(adapter, options = {}) {
     if (options.dateTo) {
       const toDate = new Date(options.dateTo);
       if (!Number.isNaN(toDate.getTime())) {
-        // If only YYYY-MM-DD was provided, extend to end of that day
         if (String(options.dateTo).length <= 10) {
           toDate.setUTCHours(23, 59, 59, 999);
         }
@@ -74,13 +73,19 @@ function buildCommonMongoFilter(adapter, options = {}) {
       .trim()
       .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    const searchClauses = [
-      { [adapter.numberField]: { $regex: escaped, $options: 'i' } },
-      { 'customerSnapshot.name': { $regex: escaped, $options: 'i' } },
-      { 'customerSnapshot.companyName': { $regex: escaped, $options: 'i' } },
-      { 'customerSnapshot.email': { $regex: escaped, $options: 'i' } },
-      { 'businessSnapshot.businessName': { $regex: escaped, $options: 'i' } },
-    ];
+    const searchFields = Array.isArray(adapter.searchFields)
+      ? adapter.searchFields
+      : [
+          adapter.numberField,
+          'customerSnapshot.name',
+          'customerSnapshot.companyName',
+          'customerSnapshot.email',
+          'businessSnapshot.businessName',
+        ];
+
+    const searchClauses = searchFields.map((field) => ({
+      [field]: { $regex: escaped, $options: 'i' },
+    }));
 
     if (filter.$or) {
       filter.$and = [{ $or: filter.$or }, { $or: searchClauses }];
@@ -93,21 +98,6 @@ function buildCommonMongoFilter(adapter, options = {}) {
   return filter;
 }
 
-/**
- * Registers a tool history adapter.
- *
- * @param {{
- *   toolType: string,
- *   aliases?: string[],
- *   model: mongoose.Model,
- *   numberField: string,
- *   dateField?: string,
- *   postProcessDoc?: (doc: object) => Promise<object>|object,
- *   toHistoryDTO: (doc: object, owner?: object|null) => object,
- *   getById: (requesterUser: object, id: string, options?: object) => Promise<object>,
- *   generatePdf: (requesterUser: object, id: string, query?: object) => Promise<{ pdfBuffer: Buffer, filename: string, document: object }>
- * }} adapter
- */
 export function registerHistoryAdapter(adapter) {
   if (!adapter || !adapter.toolType || !adapter.model) {
     throw new Error('Invalid history adapter registration');
@@ -122,9 +112,6 @@ export function registerHistoryAdapter(adapter) {
   });
 }
 
-/**
- * Resolves a single registered adapter by `toolType` or plural alias (`invoices` -> `invoice`).
- */
 export function getHistoryAdapter(toolType) {
   if (!toolType) return null;
   const normalized = String(toolType).trim().toLowerCase();
@@ -139,9 +126,6 @@ export function getHistoryAdapter(toolType) {
   return null;
 }
 
-/**
- * Returns all registered adapters, or filters to a specific `toolType` when requested.
- */
 export function getActiveHistoryAdapters(toolType = 'all') {
   if (!toolType || String(toolType).toLowerCase() === 'all') {
     return Array.from(adapterRegistry.values());
@@ -151,7 +135,7 @@ export function getActiveHistoryAdapters(toolType = 'all') {
 }
 
 // ============================================================================
-// Register Built-in Tool 01: Invoice Generator Adapter (`invoice`)
+// Tool 01: Invoice Generator Adapter (`invoice`)
 // ============================================================================
 registerHistoryAdapter({
   toolType: 'invoice',
@@ -210,7 +194,7 @@ registerHistoryAdapter({
 });
 
 // ============================================================================
-// Register Built-in Tool 02: Quotation Generator Adapter (`quotation`)
+// Tool 02: Quotation Generator Adapter (`quotation`)
 // ============================================================================
 registerHistoryAdapter({
   toolType: 'quotation',
@@ -268,6 +252,73 @@ registerHistoryAdapter({
       filename: result.filename,
       document: result.quotation,
     };
+  },
+});
+
+// ============================================================================
+// Tool 03: SEO Analyzer Adapter (`seo`)
+// ============================================================================
+function extractHostnameLabel(rawUrl = '') {
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.hostname || rawUrl;
+  } catch {
+    return String(rawUrl || 'SEO Audit').slice(0, 60);
+  }
+}
+
+registerHistoryAdapter({
+  toolType: 'seo',
+  aliases: ['seo-analyzer', 'seo_audit', 'seo-audit', 'audit', 'audits'],
+  model: SeoAudit,
+  numberField: 'finalUrl',
+  dateField: 'analyzedAt',
+  searchFields: ['url', 'finalUrl', 'pageTitle'],
+  toHistoryDTO(doc, owner = null) {
+    const id = String(doc._id);
+    const displayHost = extractHostnameLabel(doc.finalUrl || doc.url);
+    const dto = {
+      id,
+      _id: id,
+      userId: doc.userId ? String(doc.userId) : null,
+      isGuestAudit: doc.isGuestAudit === true,
+      toolType: 'seo',
+      documentNumber: displayHost,
+      customerName: doc.pageTitle || doc.finalUrl || doc.url || 'SEO Audit',
+      url: doc.url,
+      finalUrl: doc.finalUrl,
+      pageTitle: doc.pageTitle || '',
+      currency: 'SCORE',
+      grandTotal: Number(doc.overallScore) || 0,
+      overallScore: Number(doc.overallScore) || 0,
+      scoreCoverage: Number(doc.scoreCoverage) || 0,
+      pageSize: `Score ${doc.overallScore ?? 0}/100`,
+      status: doc.status || 'completed',
+      analyzedAt: doc.analyzedAt || doc.createdAt,
+      createdAt: doc.analyzedAt || doc.createdAt,
+      updatedAt: doc.updatedAt || doc.analyzedAt || doc.createdAt,
+    };
+
+    if (owner) {
+      dto.owner = owner;
+    }
+
+    return dto;
+  },
+  async getById(requesterUser, documentId, options = {}) {
+    return getSeoAuditById(
+      {
+        id: documentId,
+        requesterUser,
+      },
+      { allowAdmin: options.allowAdmin === true }
+    );
+  },
+  async generatePdf() {
+    throw new AppError(
+      'Direct server PDF export is not applicable to SEO audits. Use CSV export or browser Print inside the SEO report view.',
+      400
+    );
   },
 });
 

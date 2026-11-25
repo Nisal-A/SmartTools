@@ -13,7 +13,11 @@ import mongoose from 'mongoose';
  * - `lastLoginAt`: timestamp of latest interactive login
  */
 
-export const DEFAULT_PINNED_TOOLS = ['invoice-generator', 'quotation-generator'];
+export const DEFAULT_PINNED_TOOLS = [
+  'invoice-generator',
+  'quotation-generator',
+  'seo-analyzer',
+];
 
 const userSchema = new mongoose.Schema(
   {

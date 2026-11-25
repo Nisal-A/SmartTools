@@ -7,6 +7,7 @@ import profileRoutes from './modules/profiles/profiles.routes.js';
 import customerRoutes from './modules/customers/customers.routes.js';
 import invoiceRoutes from './modules/invoices/invoices.routes.js';
 import quotationRoutes from './modules/quotations/quotations.routes.js';
+import seoAnalyzerRoutes from './modules/seo-analyzer/seoAnalyzer.routes.js';
 import documentsRoutes from './modules/documents/documents.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
 import pdfEngineRoutes from './modules/pdf-engine/pdfEngine.routes.js';
@@ -42,6 +43,7 @@ export function createApp() {
   app.use('/api/v1/customers', customerRoutes);
   app.use('/api/v1/invoices', invoiceRoutes);
   app.use('/api/v1/quotations', quotationRoutes);
+  app.use('/api/v1/seo', seoAnalyzerRoutes);
   app.use('/api/v1/admin', adminRoutes);
   app.use('/api/v1', documentsRoutes);
 
