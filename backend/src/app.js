@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -16,20 +17,88 @@ import {
   errorHandler,
 } from './middleware/errorHandler.middleware.js';
 
+/**
+ * Normalizes `CLIENT_URL` (plus legacy `FRONTEND_ORIGIN` / `CLIENT_ORIGIN` fallbacks)
+ * by splitting comma-separated URLs and stripping trailing slashes.
+ */
+export function getNormalizedAllowedOrigins() {
+  const raw =
+    process.env.CLIENT_URL ||
+    process.env.FRONTEND_ORIGIN ||
+    process.env.CLIENT_ORIGIN ||
+    '';
+
+  return raw
+    .split(',')
+    .map((entry) => entry.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+}
+
+function safeCompareSecret(provided, expected) {
+  const a = Buffer.from(String(provided || ''));
+  const b = Buffer.from(String(expected || ''));
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
 export function createApp() {
   const app = express();
+
+  // Trust Render's first-hop reverse proxy for accurate client IPs & Secure cookies
+  app.set('trust proxy', 1);
+
+  // Isolated lightweight keep-alive endpoint mounted BEFORE auth, rate limiters & body parsers
+  app.get('/api/v1/system/ping', (req, res) => {
+    const keepaliveSecret = (process.env.KEEPALIVE_SECRET || '').trim();
+    if (keepaliveSecret) {
+      const providedKey = req.get('x-keepalive-key') || '';
+      if (!safeCompareSecret(providedKey, keepaliveSecret)) {
+        return res.status(401).json({
+          success: false,
+          message: 'Unauthorized keep-alive ping.',
+        });
+      }
+    }
+
+    return res.status(200).json({
+      status: 'ok',
+      pong: true,
+      timestamp: new Date().toISOString(),
+    });
+  });
 
   app.use(
     helmet({
       contentSecurityPolicy: false,
     })
   );
+
+  const allowedOrigins = getNormalizedAllowedOrigins();
+
   app.use(
     cors({
-      origin: process.env.FRONTEND_ORIGIN || true,
+      origin(requestOrigin, callback) {
+        // Allow non-browser / same-origin requests with no Origin header
+        if (!requestOrigin) {
+          return callback(null, true);
+        }
+
+        if (allowedOrigins.length === 0) {
+          // Local dev convenience when CLIENT_URL is not configured
+          return callback(null, true);
+        }
+
+        const normalizedOrigin = requestOrigin.trim().replace(/\/+$/, '');
+        if (allowedOrigins.includes(normalizedOrigin)) {
+          return callback(null, true);
+        }
+
+        return callback(null, false);
+      },
       credentials: true,
     })
   );
+
   app.use(cookieParser());
   app.use(express.json({ limit: '5mb' }));
 

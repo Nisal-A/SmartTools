@@ -35,19 +35,30 @@ const parseInteger = (source, name, rule, errors) => {
   return value;
 };
 
-const parseOrigin = (raw, errors) => {
-  try {
-    const url = new URL(raw);
-    if (!['http:', 'https:'].includes(url.protocol)) {
-      throw new Error('bad protocol');
+const parseOriginList = (raw, errors) => {
+  const parts = raw
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) return DEFAULT_CLIENT_ORIGIN;
+
+  const normalized = [];
+  for (const part of parts) {
+    try {
+      const url = new URL(part);
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        throw new Error('bad protocol');
+      }
+      normalized.push(url.origin);
+    } catch {
+      errors.push(
+        `CLIENT_URL / CLIENT_ORIGIN must contain valid http(s) origin(s) such as ${DEFAULT_CLIENT_ORIGIN} (received "${part}")`
+      );
     }
-    return url.origin;
-  } catch {
-    errors.push(
-      `CLIENT_ORIGIN must be an http(s) origin such as ${DEFAULT_CLIENT_ORIGIN} (received "${raw}")`
-    );
-    return DEFAULT_CLIENT_ORIGIN;
   }
+
+  return normalized.length > 0 ? normalized.join(',') : DEFAULT_CLIENT_ORIGIN;
 };
 
 /**
@@ -78,10 +89,11 @@ export const validateEnv = (source = {}, options = {}) => {
   }
 
   const rawOrigin =
+    readString(source, 'CLIENT_URL') ||
     readString(source, 'FRONTEND_ORIGIN') ||
     readString(source, 'CLIENT_ORIGIN') ||
     DEFAULT_CLIENT_ORIGIN;
-  const clientOrigin = parseOrigin(rawOrigin, errors);
+  const clientOrigin = parseOriginList(rawOrigin, errors);
 
   const numeric = Object.fromEntries(
     Object.entries(NUMERIC_VARS).map(([name, rule]) => [

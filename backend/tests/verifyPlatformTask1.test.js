@@ -108,6 +108,7 @@ async function runTests() {
     assert.deepEqual(regABody.user.pinnedToolIds, [
       'invoice-generator',
       'quotation-generator',
+      'seo-analyzer',
     ]);
 
     const setCookieA = regARes.headers.get('set-cookie');

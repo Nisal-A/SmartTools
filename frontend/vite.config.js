@@ -12,6 +12,9 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, 'src'),
       '@shared': path.resolve(__dirname, '../shared'),
+      // Ensure `../shared/schemas/*` always resolves `zod` even on Render Static Site
+      // builds where only `frontend/node_modules` is installed.
+      zod: path.resolve(__dirname, 'node_modules/zod'),
     },
   },
   server: {

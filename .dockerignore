@@ -1,0 +1,27 @@
+# Version control & editor metadata
+.git
+.gitignore
+.vscode
+.idea
+
+# Dependencies & build artifacts
+**/node_modules
+**/dist
+**/build
+**/coverage
+*.log
+
+# Frontend SPA (deployed separately as a Render Static Site)
+frontend
+
+# Environment secrets (never bake into Docker layers)
+**/.env
+**/.env.*
+
+# Temporary migration folders, docs & automated test suites
+_tmp_*
+docs
+**/tests
+**/*.test.js
+MASTERPLAN.md
+README.md

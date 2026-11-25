@@ -4,14 +4,15 @@ import { connectDatabase } from './config/db.js';
 import { shutdownPuppeteerPool } from './config/puppeteerPool.js';
 
 const PORT = Number(process.env.PORT) || 5000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 async function startServer() {
   const dbStatus = await connectDatabase();
   const app = createApp();
 
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, HOST, () => {
     console.log(
-      `[SmartTools Backend] Listening on http://localhost:${PORT} (inMemoryDB=${dbStatus.isInMemoryMode})`
+      `[SmartTools Backend] Listening on http://${HOST}:${PORT} (inMemoryDB=${dbStatus.isInMemoryMode})`
     );
   });
 

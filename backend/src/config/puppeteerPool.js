@@ -2,22 +2,35 @@ import fs from 'node:fs';
 import puppeteer from 'puppeteer';
 
 /**
- * Hardened Warm Chromium Pool for Multi-Size PDF Rendering
+ * Hardened Warm Chromium Pool for Multi-Size PDF Rendering (Render 512 MB Tuned)
  *
  * Features:
- * 1. Single warm headless Chromium instance reused across PDF renders.
+ * 1. Single warm headless Chromium instance reused across PDF renders with auto-relaunch on disconnect.
  * 2. Isolated BrowserContext per render job (`createBrowserContext()`).
- * 3. Bounded concurrency queue (max 3 concurrent renders).
+ * 3. Bounded concurrency queue (capped at 2 in `production` for Render 512 MB RAM, 3 in dev).
  * 4. Strict SSRF request interception: blocks all outbound network requests
  *    except `data:image/*` and whitelisted Cloudinary/self-hosted image URLs.
  * 5. Guaranteed page & context cleanup in `finally` blocks + SIGINT/SIGTERM hooks.
  */
 
-const MAX_CONCURRENT_RENDERS = Number(process.env.PDF_MAX_CONCURRENCY) || 3;
-
-const DEFAULT_ALLOWED_IMAGE_HOSTS = [
-  'res.cloudinary.com',
+export const RENDER_SAFE_CHROMIUM_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-gpu',
+  '--no-zygote',
+  '--single-process',
 ];
+
+function getMaxConcurrentRenders() {
+  if (process.env.PDF_MAX_CONCURRENCY) {
+    const parsed = Number(process.env.PDF_MAX_CONCURRENCY);
+    if (Number.isInteger(parsed) && parsed >= 1) return parsed;
+  }
+  return process.env.NODE_ENV === 'production' ? 2 : 3;
+}
+
+const DEFAULT_ALLOWED_IMAGE_HOSTS = ['res.cloudinary.com'];
 
 const PRIVATE_HOST_PATTERNS = [
   /^localhost$/i,
@@ -44,59 +57,57 @@ function getAllowedImageHosts() {
 /**
  * Validates whether a page request URL is permitted during PDF rendering.
  * Blocks SSRF attempts against internal services, cloud metadata IPs, file://, etc.
- *
- * @param {string} urlStr
- * @param {string} [resourceType]
- * @returns {boolean}
  */
-export function isAllowedPdfRequest(urlStr, resourceType = 'image') {
-  if (!urlStr || typeof urlStr !== 'string') return false;
-  const trimmed = urlStr.trim();
+export function isAllowedPdfRequest(urlStr, resourceType = '') {
+  if (!urlStr) return false;
 
-  // Allow Chromium's internal blank document / inline HTML document load for page.setContent()
-  if (trimmed === 'about:blank' || trimmed.startsWith('data:text/html')) {
-    return resourceType === 'document' || !resourceType;
-  }
-
-  // Allow inline base64 data:image/* logos (used by Guest Mode local logos)
-  if (/^data:image\/(png|jpeg|jpg|webp|gif|svg\+xml);base64,/i.test(trimmed)) {
+  if (urlStr === 'about:blank' || urlStr.startsWith('about:')) {
     return true;
   }
 
-  // Only image sub-resources may be fetched over HTTP/HTTPS from whitelisted hosts
-  if (resourceType && resourceType !== 'image') {
-    return false;
+  if (urlStr.startsWith('data:')) {
+    return /^data:(image\/|font\/|application\/font)/i.test(urlStr);
   }
 
+  let parsed;
   try {
-    const parsed = new URL(trimmed);
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-      return false;
-    }
-
-    const hostname = parsed.hostname.toLowerCase();
-
-    // Explicitly block loopback, link-local, metadata, and RFC1918 private addresses
-    if (PRIVATE_HOST_PATTERNS.some((regex) => regex.test(hostname))) {
-      return false;
-    }
-
-    const allowedHosts = getAllowedImageHosts();
-    return allowedHosts.has(hostname);
+    parsed = new URL(urlStr);
   } catch {
     return false;
   }
+
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    return false;
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  if (PRIVATE_HOST_PATTERNS.some((rx) => rx.test(hostname))) {
+    return false;
+  }
+
+  if (resourceType && resourceType !== 'image' && resourceType !== 'font') {
+    return false;
+  }
+
+  const allowedHosts = getAllowedImageHosts();
+  for (const allowed of allowedHosts) {
+    if (hostname === allowed || hostname.endsWith(`.${allowed}`)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
- * Resolves a working Chrome/Chromium executable path across environments.
+ * Resolves Chromium executable path:
+ * 1. `process.env.PUPPETEER_EXECUTABLE_PATH || undefined` (primary Docker/Render path)
+ * 2. Bundled Puppeteer Chromium or local system Chrome/Edge fallback for local dev
  */
 function resolveChromiumExecutablePath() {
-  if (
-    process.env.PUPPETEER_EXECUTABLE_PATH &&
-    fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)
-  ) {
-    return process.env.PUPPETEER_EXECUTABLE_PATH;
+  const envPath = (process.env.PUPPETEER_EXECUTABLE_PATH || '').trim();
+  if (envPath) {
+    return envPath;
   }
 
   try {
@@ -105,10 +116,14 @@ function resolveChromiumExecutablePath() {
       return bundledPath;
     }
   } catch {
-    // Fall through to system browser discovery
+    // Fall through to system browser discovery for local dev
   }
 
   const systemCandidates = [
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
     process.env.LOCALAPPDATA
@@ -116,10 +131,6 @@ function resolveChromiumExecutablePath() {
       : null,
     'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
     'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   ].filter(Boolean);
 
@@ -132,6 +143,27 @@ function resolveChromiumExecutablePath() {
   return undefined;
 }
 
+function buildChromiumArgs() {
+  // Note: On Windows desktop Chrome, `--single-process` can crash Win32 renderer threads;
+  // on Linux/Docker (Render), the full low-memory flag set is used.
+  const baseFlags =
+    process.platform === 'win32' && process.env.NODE_ENV !== 'production'
+      ? RENDER_SAFE_CHROMIUM_ARGS.filter(
+          (flag) => flag !== '--single-process' && flag !== '--no-zygote'
+        )
+      : [...RENDER_SAFE_CHROMIUM_ARGS];
+
+  return [
+    ...baseFlags,
+    '--disable-extensions',
+    '--disable-background-networking',
+    '--disable-sync',
+    '--disable-translate',
+    '--no-first-run',
+    '--safebrowsing-disable-auto-update',
+  ];
+}
+
 let browserInstance = null;
 let browserLaunchPromise = null;
 let activeJobs = 0;
@@ -139,7 +171,8 @@ const waitQueue = [];
 let shutdownHooksRegistered = false;
 
 function acquireSlot() {
-  if (activeJobs < MAX_CONCURRENT_RENDERS) {
+  const maxConcurrent = getMaxConcurrentRenders();
+  if (activeJobs < maxConcurrent) {
     activeJobs += 1;
     return Promise.resolve();
   }
@@ -149,7 +182,8 @@ function acquireSlot() {
 }
 
 function releaseSlot() {
-  if (waitQueue.length > 0) {
+  const maxConcurrent = getMaxConcurrentRenders();
+  if (waitQueue.length > 0 && activeJobs <= maxConcurrent) {
     const nextResolve = waitQueue.shift();
     nextResolve();
   } else {
@@ -171,6 +205,7 @@ function registerShutdownHooks() {
 
 /**
  * Launches or returns the warm singleton Chromium browser instance.
+ * Automatically clears `browserInstance` on unexpected disconnect so subsequent calls relaunch.
  */
 export async function getWarmBrowser() {
   registerShutdownHooks();
@@ -179,28 +214,22 @@ export async function getWarmBrowser() {
     return browserInstance;
   }
 
+  browserInstance = null;
+
   if (browserLaunchPromise) {
     return browserLaunchPromise;
   }
 
-  const executablePath = resolveChromiumExecutablePath();
+  const executablePath =
+    process.env.PUPPETEER_EXECUTABLE_PATH?.trim() ||
+    resolveChromiumExecutablePath() ||
+    undefined;
 
   browserLaunchPromise = puppeteer
     .launch({
       headless: true,
       executablePath,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-extensions',
-        '--disable-background-networking',
-        '--disable-sync',
-        '--disable-translate',
-        '--no-first-run',
-        '--safebrowsing-disable-auto-update',
-      ],
+      args: buildChromiumArgs(),
     })
     .then((browser) => {
       browserInstance = browser;
@@ -222,13 +251,19 @@ export async function getWarmBrowser() {
   return browserLaunchPromise;
 }
 
+async function openIsolatedContextAndPage(browser) {
+  const context =
+    typeof browser.createBrowserContext === 'function'
+      ? await browser.createBrowserContext()
+      : await browser.createIncognitoBrowserContext();
+  const page = await context.newPage();
+  return { context, page };
+}
+
 /**
  * Executes a PDF rendering task inside an isolated BrowserContext and Page
- * with concurrency queuing and SSRF request interception enabled.
- *
- * @template T
- * @param {(page: import('puppeteer').Page) => Promise<T>} taskFn
- * @returns {Promise<T>}
+ * with concurrency queuing, SSRF request interception, and automatic browser
+ * relaunch if Chromium disconnected unexpectedly.
  */
 export async function withIsolatedPage(taskFn) {
   await acquireSlot();
@@ -237,14 +272,19 @@ export async function withIsolatedPage(taskFn) {
   let page = null;
 
   try {
-    const browser = await getWarmBrowser();
+    let browser = await getWarmBrowser();
 
-    context =
-      typeof browser.createBrowserContext === 'function'
-        ? await browser.createBrowserContext()
-        : await browser.createIncognitoBrowserContext();
-
-    page = await context.newPage();
+    try {
+      ({ context, page } = await openIsolatedContextAndPage(browser));
+    } catch {
+      // Browser disconnected mid-flight; force relaunch once
+      if (browserInstance === browser) {
+        browserInstance = null;
+      }
+      await browser.close().catch(() => {});
+      browser = await getWarmBrowser();
+      ({ context, page } = await openIsolatedContextAndPage(browser));
+    }
 
     // Enable strict SSRF request interception
     await page.setRequestInterception(true);
@@ -271,21 +311,15 @@ export async function withIsolatedPage(taskFn) {
   }
 }
 
-/**
- * Returns pool telemetry for health checks and diagnostics.
- */
 export function getPuppeteerPoolStats() {
   return {
     isBrowserWarm: Boolean(browserInstance && browserInstance.connected),
     activeJobs,
     queuedJobs: waitQueue.length,
-    maxConcurrency: MAX_CONCURRENT_RENDERS,
+    maxConcurrency: getMaxConcurrentRenders(),
   };
 }
 
-/**
- * Cleanly closes the warm Chromium instance.
- */
 export async function shutdownPuppeteerPool() {
   const currentBrowser = browserInstance;
   browserInstance = null;

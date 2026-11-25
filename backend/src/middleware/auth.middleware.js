@@ -83,28 +83,34 @@ export function verifyRefreshToken(token) {
 }
 
 /**
- * Attaches the 7-day HttpOnly Secure SameSite refresh token cookie to the response.
+ * Shared cookie options used by BOTH `res.cookie` and `res.clearCookie` so cross-site
+ * `SameSite=None; Secure` cookies clear reliably across separate `*.onrender.com` subdomains.
+ */
+export function getRefreshCookieOptions() {
+  const isProd = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/',
+  };
+}
+
+/**
+ * Attaches the 7-day HttpOnly refresh token cookie to the response.
  */
 export function setRefreshTokenCookie(res, refreshToken) {
   res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    ...getRefreshCookieOptions(),
     maxAge: REFRESH_COOKIE_MAX_AGE_MS,
-    path: '/',
   });
 }
 
 /**
- * Clears the HttpOnly refresh token cookie on logout.
+ * Clears the HttpOnly refresh token cookie on logout using identical `sameSite` & `secure` flags.
  */
 export function clearRefreshTokenCookie(res) {
-  res.clearCookie(REFRESH_COOKIE_NAME, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-  });
+  res.clearCookie(REFRESH_COOKIE_NAME, getRefreshCookieOptions());
 }
 
 /**
