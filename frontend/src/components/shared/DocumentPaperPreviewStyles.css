@@ -1,0 +1,531 @@
+/*
+ * SmartTools Adaptive Multi-Size Document Preview & Print Styles
+ *
+ * Mirrors `backend/src/modules/pdf-engine/templates/basePaperStyles.js` 1:1
+ * so that Live Preview === Browser Print === Downloaded Puppeteer PDF.
+ */
+
+.smarttools-preview-stage {
+  position: relative;
+  width: 100%;
+  overflow: auto;
+  background-color: #e2e8f0;
+  background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.smarttools-paper-sheet {
+  width: var(--paper-width, 210mm);
+  min-height: var(--paper-height, 297mm);
+  padding: var(--paper-margin, 15mm);
+  background: #ffffff;
+  color: #0f172a;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: var(--base-font-pt, 10pt);
+  line-height: 1.45;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 20px 45px -15px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.08);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.smarttools-paper-sheet *,
+.smarttools-paper-sheet *::before,
+.smarttools-paper-sheet *::after {
+  box-sizing: border-box;
+}
+
+/* Pagination & Page-Break Enforcement */
+.smarttools-paper-sheet thead {
+  display: table-header-group;
+}
+
+.smarttools-paper-sheet tfoot {
+  display: table-footer-group;
+}
+
+.smarttools-paper-sheet tr,
+.smarttools-paper-sheet .totals-block,
+.smarttools-paper-sheet .signature-block,
+.smarttools-paper-sheet .bank-block,
+.smarttools-paper-sheet .terms-block,
+.smarttools-paper-sheet .billing-grid {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* 2-Column Header */
+.smarttools-paper-sheet .doc-header {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 14px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--accent-primary, #4f46e5);
+  margin-bottom: 14px;
+  align-items: start;
+}
+
+.smarttools-paper-sheet .brand-block {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.smarttools-paper-sheet .brand-logo {
+  max-width: 56px;
+  max-height: 56px;
+  object-fit: contain;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  padding: 2px;
+  background: #ffffff;
+}
+
+.smarttools-paper-sheet .business-name {
+  font-size: 1.35em;
+  font-weight: 800;
+  color: var(--accent-text, #1e1b4b);
+  letter-spacing: -0.01em;
+  margin-bottom: 3px;
+}
+
+.smarttools-paper-sheet .business-meta {
+  color: #475569;
+  font-size: 0.88em;
+  line-height: 1.38;
+}
+
+.smarttools-paper-sheet .doc-title-block {
+  text-align: right;
+}
+
+.smarttools-paper-sheet .doc-type-heading {
+  font-size: 1.75em;
+  font-weight: 800;
+  color: var(--accent-primary, #4f46e5);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+.smarttools-paper-sheet .doc-number-badge {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 3px 8px;
+  background: var(--accent-bg, #eef2ff);
+  border: 1px solid var(--accent-border, #c7d2fe);
+  color: var(--accent-secondary, #3730a3);
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.9em;
+}
+
+.smarttools-paper-sheet .status-pill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.75em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.smarttools-paper-sheet .doc-meta-grid {
+  margin-top: 8px;
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  gap: 3px 10px;
+  text-align: right;
+  font-size: 0.88em;
+}
+
+.smarttools-paper-sheet .doc-meta-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.smarttools-paper-sheet .doc-meta-value {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+/* Customer & Summary Strip */
+.smarttools-paper-sheet .billing-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid var(--accent-primary, #4f46e5);
+  border-radius: 6px;
+}
+
+.smarttools-paper-sheet .section-eyebrow {
+  font-size: 0.76em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-primary, #4f46e5);
+  margin-bottom: 4px;
+}
+
+.smarttools-paper-sheet .customer-name {
+  font-size: 1.05em;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+
+.smarttools-paper-sheet .customer-details {
+  font-size: 0.88em;
+  color: #475569;
+  line-height: 1.38;
+}
+
+/* Adaptive Line Items Table */
+.smarttools-paper-sheet .items-section {
+  margin-bottom: 14px;
+  flex-grow: 1;
+}
+
+.smarttools-paper-sheet table.items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+
+.smarttools-paper-sheet table.items-table thead th {
+  background: var(--accent-primary, #4f46e5);
+  color: #ffffff;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.78em;
+  letter-spacing: 0.04em;
+  padding: 7px 8px;
+  text-align: left;
+  border: 1px solid var(--accent-primary, #4f46e5);
+}
+
+.smarttools-paper-sheet table.items-table thead th.num,
+.smarttools-paper-sheet table.items-table tbody td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.smarttools-paper-sheet table.items-table tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.smarttools-paper-sheet table.items-table tbody tr:nth-child(even) {
+  background: #fafbfd;
+}
+
+.smarttools-paper-sheet table.items-table tbody td {
+  padding: 7px 8px;
+  vertical-align: top;
+  color: #1e293b;
+}
+
+.smarttools-paper-sheet .item-title {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.smarttools-paper-sheet .item-desc {
+  font-size: 0.86em;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* Footer: Side-by-side on A4, LETTER, B5, LEGAL; Stacked on A5 */
+.smarttools-paper-sheet .doc-footer-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 16px;
+  align-items: start;
+  margin-top: 8px;
+}
+
+.smarttools-paper-sheet .info-card {
+  padding: 9px 11px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  margin-bottom: 8px;
+  font-size: 0.88em;
+}
+
+.smarttools-paper-sheet .info-card-title {
+  font-size: 0.8em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-secondary, #3730a3);
+  margin-bottom: 4px;
+}
+
+.smarttools-paper-sheet .bank-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  font-size: 0.92em;
+}
+
+.smarttools-paper-sheet .bank-label {
+  color: #64748b;
+}
+
+.smarttools-paper-sheet .bank-val {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+/* Totals Summary Block */
+.smarttools-paper-sheet .totals-block {
+  border: 1px solid var(--accent-border, #c7d2fe);
+  background: #ffffff;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.smarttools-paper-sheet .totals-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 11px;
+  font-size: 0.92em;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.smarttools-paper-sheet .totals-row.grand-total {
+  background: var(--accent-primary, #4f46e5);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.08em;
+  padding: 8px 11px;
+  border-bottom: none;
+}
+
+.smarttools-paper-sheet .totals-row.sub-balance {
+  background: var(--accent-bg, #eef2ff);
+  color: var(--accent-text, #1e1b4b);
+  font-weight: 700;
+}
+
+/* Signature & Acceptance Block */
+.smarttools-paper-sheet .signature-block {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed #cbd5e1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  font-size: 0.86em;
+}
+
+.smarttools-paper-sheet .sig-box {
+  padding-top: 22px;
+  border-bottom: 1px solid #475569;
+  margin-bottom: 4px;
+}
+
+.smarttools-paper-sheet .sig-caption {
+  color: #475569;
+  font-weight: 600;
+}
+
+/* ================================================================
+ * SIZE-SPECIFIC LAYOUT ADAPTATIONS (Mirroring Puppeteer Engine)
+ * ================================================================ */
+
+/* A5: 10mm margins, 9pt base font, 4-col compact table, stacked footer */
+.smarttools-paper-sheet[data-paper='A5'] {
+  padding: 10mm;
+  font-size: 9pt;
+}
+
+.smarttools-paper-sheet[data-paper='A5'] .doc-header {
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+}
+
+.smarttools-paper-sheet[data-paper='A5'] .billing-grid {
+  grid-template-columns: 1fr;
+  gap: 6px;
+  padding: 7px 9px;
+  margin-bottom: 10px;
+}
+
+.smarttools-paper-sheet[data-paper='A5'] table.items-table thead th,
+.smarttools-paper-sheet[data-paper='A5'] table.items-table tbody td {
+  padding: 5px 6px;
+}
+
+.smarttools-paper-sheet[data-paper='A5'] .doc-footer-grid {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+/* B5: 12mm margins, 9.5pt typography, condensed column widths */
+.smarttools-paper-sheet[data-paper='B5'] {
+  padding: 12mm;
+  font-size: 9.5pt;
+}
+
+.smarttools-paper-sheet[data-paper='B5'] table.items-table thead th,
+.smarttools-paper-sheet[data-paper='B5'] table.items-table tbody td {
+  padding: 5px 6px;
+  font-size: 0.9em;
+}
+
+.smarttools-paper-sheet[data-paper='B5'] .doc-footer-grid {
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 12px;
+}
+
+/* LEGAL: 15mm margins, extended vertical item area + dedicated Terms & Acceptance block */
+.smarttools-paper-sheet[data-paper='LEGAL'] {
+  padding: 15mm;
+  font-size: 10pt;
+}
+
+.smarttools-paper-sheet[data-paper='LEGAL'] .items-section {
+  min-height: 125mm;
+}
+
+.smarttools-paper-sheet[data-paper='LEGAL'] .legal-terms-box {
+  margin-top: 12px;
+  padding: 11px 13px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.86em;
+  line-height: 1.45;
+}
+
+/* THERMAL_80: 80mm single-column POS receipt, 4mm padding, 8.5pt monospace */
+.smarttools-paper-sheet[data-paper='THERMAL_80'] {
+  width: 80mm;
+  min-height: auto;
+  padding: 4mm;
+  display: block;
+  font-family: 'Courier New', Courier, 'Liberation Mono', monospace;
+  font-size: 8.5pt;
+  line-height: 1.32;
+  color: #000000;
+}
+
+.smarttools-paper-sheet[data-paper='THERMAL_80'] .thermal-header {
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.smarttools-paper-sheet[data-paper='THERMAL_80'] .thermal-logo {
+  max-width: 36mm;
+  max-height: 16mm;
+  object-fit: contain;
+  margin: 0 auto 4px auto;
+  display: block;
+}
+
+.smarttools-paper-sheet[data-paper='THERMAL_80'] .thermal-biz-name {
+  font-size: 1.2em;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.smarttools-paper-sheet[data-paper='THERMAL_80'] .thermal-divider {
+  border: none;
+  border-top: 1px dashed #000000;
+  margin: 5px 0;
+}
+
+.smarttools-paper-sheet[data-paper='THERMAL_80'] .thermal-meta-row,
+.smarttools-paper-sheet[data-paper='THERMAL_80'] .thermal-total-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 2px 0;
+}
+
+.smarttools-paper-sheet[data-paper='THERMAL_80'] .thermal-item {
+  margin: 4px 0;
+}
+
+.smarttools-paper-sheet[data-paper='THERMAL_80'] .thermal-item-name {
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.smarttools-paper-sheet[data-paper='THERMAL_80'] .thermal-item-calc {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.94em;
+}
+
+.smarttools-paper-sheet[data-paper='THERMAL_80'] .thermal-grand-total {
+  font-size: 1.15em;
+  font-weight: 700;
+  padding: 3px 0;
+  border-top: 1px dashed #000000;
+  border-bottom: 1px dashed #000000;
+  margin: 4px 0;
+}
+
+.smarttools-paper-sheet[data-paper='THERMAL_80'] .thermal-footer {
+  text-align: center;
+  margin-top: 8px;
+  font-size: 0.9em;
+}
+
+/* ================================================================
+ * CLEAN @media print ISOLATION
+ * Outputs ONLY the formatted physical paper sheet at 100% scale.
+ * ================================================================ */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .smarttools-printable-root,
+  .smarttools-printable-root * {
+    visibility: visible !important;
+  }
+
+  .smarttools-printable-root {
+    position: fixed !important;
+    inset: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  .smarttools-scale-wrapper {
+    width: auto !important;
+    height: auto !important;
+    transform: none !important;
+  }
+
+  .smarttools-paper-sheet {
+    box-shadow: none !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+}
