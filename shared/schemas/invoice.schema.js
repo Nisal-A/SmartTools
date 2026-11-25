@@ -103,9 +103,9 @@ const invoicePaperShape = getPaperConfigShape('invoice');
 
 export const invoiceSchema = z.object({
   // Invoice Metadata
-  invoiceNumber: z.string().trim().min(1).max(60).optional(),
+  invoiceNumber: z.string().trim().max(60).optional().or(z.literal('')),
   issueDate: dateInputSchema.default(() => new Date().toISOString().slice(0, 10)),
-  dueDate: dateInputSchema.optional().nullable(),
+  dueDate: z.union([z.string().trim(), z.date()]).optional().nullable(),
   currency: z.string().trim().min(3, 'Currency code is required').max(10).default('USD'),
   paymentTerms: z.string().trim().max(500).optional().default(''),
   status: z.enum(INVOICE_STATUS_VALUES).default('draft'),

@@ -32,9 +32,9 @@ const quotationPaperShape = getPaperConfigShape('quotation');
 
 export const quotationSchema = z.object({
   // Quotation Metadata
-  quotationNumber: z.string().trim().min(1).max(60).optional(),
+  quotationNumber: z.string().trim().max(60).optional().or(z.literal('')),
   issueDate: dateInputSchema.default(() => new Date().toISOString().slice(0, 10)),
-  validUntil: dateInputSchema.optional().nullable(),
+  validUntil: z.union([z.string().trim(), z.date()]).optional().nullable(),
   currency: z.string().trim().min(3, 'Currency code is required').max(10).default('USD'),
   deliveryTerms: z.string().trim().max(500).optional().default(''),
   paymentTerms: z.string().trim().max(500).optional().default(''),

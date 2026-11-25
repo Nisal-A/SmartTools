@@ -94,6 +94,46 @@ export function DocumentExportBar({
           responseType: 'blob',
         });
       } else {
+        const sanitizedPayload = {
+          ...documentData,
+          ...(normalizedType === 'invoice'
+            ? {
+                invoiceNumber: documentData?.invoiceNumber?.trim() || 'INV-DRAFT',
+                dueDate: documentData?.dueDate || null,
+              }
+            : {
+                quotationNumber: documentData?.quotationNumber?.trim() || 'QUO-DRAFT',
+                validUntil: documentData?.validUntil || null,
+              }),
+          businessSnapshot: {
+            ...(documentData?.businessSnapshot || {}),
+            businessName:
+              documentData?.businessSnapshot?.businessName?.trim() ||
+              documentData?.businessSnapshot?.name?.trim() ||
+              'Your Business',
+          },
+          customerSnapshot: {
+            ...(documentData?.customerSnapshot || {}),
+            name:
+              documentData?.customerSnapshot?.name?.trim() ||
+              documentData?.customerSnapshot?.companyName?.trim() ||
+              'Customer',
+          },
+          items: Array.isArray(documentData?.items) && documentData.items.length > 0
+            ? documentData.items.map((item, idx) => ({
+                ...item,
+                name: item?.name?.trim() || `Line Item ${idx + 1}`,
+                quantity: Number(item?.quantity) > 0 ? Number(item.quantity) : 1,
+                unitPrice: Number(item?.unitPrice) >= 0 ? Number(item.unitPrice) : 0,
+                discountValue: Number(item?.discountValue) >= 0 ? Number(item.discountValue) : 0,
+                taxRate: Number(item?.taxRate) >= 0 ? Number(item.taxRate) : 0,
+              }))
+            : [{ name: 'Item 1', quantity: 1, unitPrice: 0, taxRate: 0 }],
+          pageSize,
+          orientation,
+          templateKey,
+        };
+
         response = await apiClient.post(
           '/public/pdf/render',
           {
@@ -103,12 +143,7 @@ export function DocumentExportBar({
               orientation,
               templateKey,
             },
-            payload: {
-              ...documentData,
-              pageSize,
-              orientation,
-              templateKey,
-            },
+            payload: sanitizedPayload,
           },
           {
             responseType: 'blob',
