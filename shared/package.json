@@ -1,0 +1,13 @@
+{
+  "name": "@smarttools/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared paper size standards, deterministic financial math, and Zod validation schemas for SmartTools",
+  "scripts": {
+    "test": "node tests/verifySharedCore.test.js"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  }
+}
