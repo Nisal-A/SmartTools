@@ -1,6 +1,8 @@
-# SmartTools Platform — Multi-Tool Invoice & Quotation Generator (MERN Modular Monolith)
+# SmartTools — Modular Multi-Tool Business Platform (MERN Monolith)
 
-SmartTools is a centralized, guest-ready MERN modular monolith platform hosting independent business tools—starting with **Invoice Generator** and **Quotation Generator**—backed by a single MongoDB database (`smart_tools_db`), centralized JWT + HttpOnly refresh authentication, strict role-based isolation (`user` vs `admin`), multi-size Puppeteer PDF generation (`A4`, `A5`, `LETTER`, `LEGAL`, `B5`, `THERMAL_80`), a separate **Profile Management & Shared Customers** section, unified **Document History**, **Dashboard**, and an **Admin Governance Console** with immutable audit logging.
+> **Repository:** `https://github.com/Nisal-A/SmartTools.git`
+
+SmartTools is a centralized, guest-ready MERN modular monolith platform hosting independent business tools—including **Invoice Generator**, **Quotation Generator**, and **SEO Analyzer**—backed by a single MongoDB database (`smart_tools_db`), centralized JWT + HttpOnly refresh authentication, strict role-based isolation (`user` vs `admin`), multi-size Puppeteer PDF generation (`A4`, `A5`, `LETTER`, `LEGAL`, `B5`, `THERMAL_80`), a separate **Profile Management & Shared Customers** section, unified **Document History**, **Dashboard**, and an **Admin Governance Console** with immutable audit logging.
 
 ---
 
@@ -42,9 +44,12 @@ CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 ```
 
-### 3. Install Dependencies
+### 3. Clone & Install Dependencies
 
 ```bash
+git clone https://github.com/Nisal-A/SmartTools.git
+cd SmartTools
+
 # Shared core
 cd shared && npm install
 

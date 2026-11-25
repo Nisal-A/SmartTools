@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nisal-A/SmartTools.git",
+    "directory": "shared"
+  },
   "description": "Shared paper size standards, deterministic financial math, and Zod validation schemas for SmartTools",
   "scripts": {
     "test": "node tests/verifySharedCore.test.js"

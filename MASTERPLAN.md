@@ -1,6 +1,6 @@
 # SmartTools Platform — MERN Modular Monolith Masterplan
 
-> **Repository:** `https://github.com/Nisal-A/Invoice-Qoutation-Generator.git`  
+> **Repository:** `https://github.com/Nisal-A/SmartTools.git`  
 > **Architecture:** Modular Monolithic MERN Application  
 > **Database:** MongoDB (`smart_tools_db`) with strict logical collection separation  
 > **Core Principle:** One platform, multiple independent tools, one centralized user system, guest-ready document generation, and strict role-based data isolation.
@@ -178,8 +178,9 @@ One MongoDB database with strictly separated collections. Every user-owned docum
 ## 7. Modular Monolith Folder Structure
 
 ```text
-Invoice-Qoutation-Generator/
+SmartTools/
 ├── MASTERPLAN.md
+├── README.md
 ├── shared/
 │   ├── constants/paperSizes.js          # Single source of truth for A4, A5, Letter, Legal, B5, Thermal 80mm
 │   ├── schemas/                         # Shared Zod schemas (invoice, quotation, customer, profile, paperConfig)
