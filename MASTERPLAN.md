@@ -33,12 +33,21 @@ flowchart TD
 ```
 
 ### Main Application Sections
-- **Public Landing & Guest Workspace:** Allows unauthenticated visitors to launch the Invoice Generator or Quotation Generator immediately without creating an account.
+- **Public Landing & Guest Workspace (`/`):** Clean entry hero with zero-signup quick-launch CTAs ("Create Free Invoice", "Create Free Quotation", "Explore All Tools"), allowing unauthenticated visitors to launch tools immediately without creating an account.
 - **Dashboard (Authenticated):** Activity summary, KPIs (total invoiced, pending payments, active quotes, conversion rate), recent documents, and quick tool launch.
-- **Tools Hub (Guest + Authenticated):** Central catalog powered by a dynamic `toolsRegistry` listing **Invoice Generator**, **Quotation Generator**, and future expandable AI tools.
+- **Tools Hub (Guest + Authenticated, `/tools`):** Central searchable catalog powered by `frontend/src/config/toolsRegistry.js` with category tabs, Guest Friendly / Pinned Only filter pills, star pin/unpin controls, and separated Available Tools vs. Upcoming Tools Roadmap sections.
 - **Profile Management (Authenticated — Separate Section):** Personal details, reusable business profile, logo upload, bank details, tax preferences, default currency, payment terms, default document paper sizes, and security settings.
 - **Document History (Authenticated):** Unified, filterable history of the logged-in user's own invoices and quotations.
 - **Admin Console (Admin Only):** Cross-user global document history, user role management, and admin access audit logs.
+
+### Scalable Tools Registry & Navigation Architecture
+To support dozens of future tools without cluttering the header or sidebar, every navigation surface reads from a single configuration source (`frontend/src/config/toolsRegistry.js`):
+- **Registry Schema:** Exports `TOOL_CATEGORIES` (`finance`, `documents`, `ai`, `utilities`), `TOOLS_REGISTRY[]` (`id`, `name`, `shortName`, `tagline`, `description`, `route`, `iconName`, `category`, `tags[]`, `supportsGuestMode`, `status`, `featured`, `defaultPinned`, `accentColor`, `highlights[]`), and helpers (`getActiveTools`, `getToolsByCategory`, `searchTools`, `getToolByRoute`).
+- **Adding a New Tool:** Requires **only** appending one object to `toolsRegistry.js` and registering its lazy route component in `TOOL_PAGE_COMPONENTS` (`Router.jsx`). It automatically appears in the Tools Hub, Category filters, Tools Mega-Menu, Quick-Create menu, Breadcrumbs, and `Ctrl+K` / `Cmd+K` Command Switcher with zero edits to navigation components. Upcoming (`coming_soon`) tools safely render `ToolPreviewPage` instead of broken routes.
+- **Dual-Mode Shell Navigation:**
+  - **Top Navbar (`TopNavbar.jsx`):** Shared across Guest and Authenticated shells with dynamic breadcrumbs, a global `Ctrl+K` / `Cmd+K` `CommandToolSwitcher.jsx` modal (recent tools, categorized search, quick actions), and mode-aware controls (`ToolsMegaMenu.jsx` + Guest Mode pill + Auth CTAs for guests; Quick-Create `+` menu + Notifications + User Avatar dropdown for authenticated users).
+  - **Collapsible Sidebar (`SidebarNav.jsx` — Auth only):** Organizes links into 4 bounded groups—**Core** (`Dashboard`, `All Tools`, `Document History`), **Pinned Tools** (max 5 user-customizable slots synced via `/api/v1/auth/me/pinned-tools` or `localStorage`), **Workspace** (`Profile Management`, `Customers`), and **Admin** (rendered strictly for `role === 'admin'`). Supports desktop collapsed icon-rail mode and mobile slide-over drawer.
+  - **Guest Shell (`GuestShellLayout.jsx`):** Full-width workspace below `TopNavbar` with no empty auth sidebar so guests get maximum room for split-screen document editors.
 
 ---
 

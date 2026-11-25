@@ -77,6 +77,11 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  /** Shallow-merges fields into the signed-in user (e.g. optimistic `pinnedToolIds`). */
+  const updateUser = useCallback((patch = {}) => {
+    setUser((prev) => (prev ? { ...prev, ...patch } : prev));
+  }, []);
+
   const openAuthModal = useCallback((options = {}) => {
     setAuthModalState({
       isOpen: true,
@@ -107,6 +112,7 @@ export function AuthProvider({ children }) {
         register,
         logout,
         refreshMe,
+        updateUser,
         authModalState,
         openAuthModal,
         closeAuthModal,
