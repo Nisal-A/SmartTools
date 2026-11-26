@@ -24,6 +24,7 @@
     "test:receipts": "node tests/verifyReceiptsModule.test.js",
     "test:po": "node tests/verifyPurchaseOrdersModule.test.js",
     "test:expenses": "node tests/verifyExpensesModule.test.js",
+    "test:proposals": "node tests/verifyProposalsModule.test.js",
     "test:pdf": "node tests/verifyPdfEngine.test.js",
     "test:seo": "node --test tests/seo-analyzer/unit/*.test.js tests/seo-analyzer/integration/*.test.js",
     "test:qa": "node tests/verifyPlatformFinalQA.test.js"

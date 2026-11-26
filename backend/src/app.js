@@ -17,6 +17,7 @@ import receiptRoutes from './routes/receiptRoutes.js';
 import supplierRoutes from './routes/supplierRoutes.js';
 import purchaseOrderRoutes from './routes/purchaseOrderRoutes.js';
 import expenseRoutes from './routes/expenseRoutes.js';
+import proposalRoutes from './routes/proposalRoutes.js';
 import {
   notFoundHandler,
   errorHandler,
@@ -156,6 +157,7 @@ export function createApp() {
   app.use('/api/suppliers', supplierRoutes);
   app.use('/api/purchase-orders', purchaseOrderRoutes);
   app.use('/api/expenses', expenseRoutes);
+  app.use('/api/proposals', proposalRoutes);
   app.use('/api/v1/public/pdf', pdfEngineRoutes);
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/profiles', profileRoutes);
@@ -166,6 +168,7 @@ export function createApp() {
   app.use('/api/v1/suppliers', supplierRoutes);
   app.use('/api/v1/purchase-orders', purchaseOrderRoutes);
   app.use('/api/v1/expenses', expenseRoutes);
+  app.use('/api/v1/proposals', proposalRoutes);
   app.use('/api/v1/seo', seoAnalyzerRoutes);
   app.use('/api/v1/admin', adminRoutes);
   app.use('/api/v1', documentsRoutes);
