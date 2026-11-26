@@ -31,6 +31,9 @@ const TOOL_PAGE_COMPONENTS = {
   'seo-analyzer': lazy(() =>
     import('../pages/SeoAnalyzer/SeoToolShell.jsx')
   ),
+  'receipt-generator': lazy(() =>
+    import('../pages/ReceiptGenerator/ReceiptGeneratorPage.jsx')
+  ),
 };
 
 function RouteFallback() {
