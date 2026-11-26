@@ -40,6 +40,9 @@ const TOOL_PAGE_COMPONENTS = {
   'expense-tracker': lazy(() =>
     import('../pages/ExpenseTracker/ExpenseTrackerPage.jsx')
   ),
+  'ai-proposal-writer': lazy(() =>
+    import('../pages/AiProposalWriter/AiProposalWriterPage.jsx')
+  ),
 };
 
 function RouteFallback() {

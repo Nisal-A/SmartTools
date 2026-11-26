@@ -109,6 +109,40 @@ function buildEmptyQuotation(overrides = {}) {
   };
 }
 
+const QUOTATION_HANDOFF_STORAGE_KEY = 'smarttools_quotation_handoff';
+
+function applyQuotationHandoff(baseForm, handoff, taxRate = 0) {
+  if (!handoff || typeof handoff !== 'object') return baseForm;
+  const incomingItems = Array.isArray(handoff.items)
+    ? handoff.items
+        .filter((it) => it && (it.description || it.name))
+        .map((it) => ({
+          name: String(it.name || it.description || '').trim(),
+          description: it.name && it.description ? String(it.description) : '',
+          quantity: Number(it.quantity) > 0 ? Number(it.quantity) : 1,
+          unit: it.unit || 'pcs',
+          unitPrice: Number(it.unitPrice) >= 0 ? Number(it.unitPrice) : 0,
+          discountType: 'percentage',
+          discountValue: 0,
+          taxRate: Number(taxRate) || 0,
+        }))
+    : [];
+
+  return {
+    ...baseForm,
+    currency: handoff.currency || baseForm.currency,
+    customerSnapshot: {
+      ...baseForm.customerSnapshot,
+      name: handoff.client?.name || baseForm.customerSnapshot?.name || '',
+      companyName:
+        handoff.client?.companyName || baseForm.customerSnapshot?.companyName || '',
+      email: handoff.client?.email || baseForm.customerSnapshot?.email || '',
+    },
+    notes: handoff.notes || baseForm.notes || '',
+    ...(incomingItems.length > 0 ? { items: incomingItems } : {}),
+  };
+}
+
 function normalizeServerQuotationToForm(doc) {
   if (!doc) return buildEmptyQuotation();
   return buildEmptyQuotation({
@@ -215,8 +249,10 @@ export function QuotationGeneratorPage() {
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [toast, setToast] = useState(null);
   const [formError, setFormError] = useState('');
+  const [handoffProjectTitle, setHandoffProjectTitle] = useState('');
 
   const hydratedRef = useRef(false);
+  const handoffRef = useRef(null);
 
   const {
     control,
@@ -239,6 +275,36 @@ export function QuotationGeneratorPage() {
       setToast((curr) => (curr?.message === message ? null : curr));
     }, 4500);
   }, []);
+
+  useEffect(() => {
+    if (id) return;
+
+    let incoming = location.state?.handoffData || null;
+    if (!incoming) {
+      try {
+        const raw = window.sessionStorage.getItem(QUOTATION_HANDOFF_STORAGE_KEY);
+        if (raw) {
+          incoming = JSON.parse(raw);
+        }
+      } catch {
+        incoming = null;
+      }
+    }
+
+    try {
+      window.sessionStorage.removeItem(QUOTATION_HANDOFF_STORAGE_KEY);
+    } catch {
+      // Ignore storage removal errors
+    }
+
+    if (incoming && typeof incoming === 'object') {
+      handoffRef.current = incoming;
+      setHandoffProjectTitle(incoming.projectTitle || 'AI Proposal');
+      if (location.state?.handoffData) {
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    }
+  }, [id, location.pathname, location.state, navigate]);
 
   useEffect(() => {
     if (location.state?.toastMessage) {
@@ -288,42 +354,53 @@ export function QuotationGeneratorPage() {
                 ? biz.defaultQuotationSize
                 : 'A4';
             reset(
-              buildEmptyQuotation({
-                currency: biz.defaultCurrency || 'USD',
-                paymentTerms: biz.defaultPaymentTerms || '50% upfront, 50% on delivery',
-                pageSize: preferredSize,
-                businessSnapshot: {
-                  businessName: biz.businessName || '',
-                  taxRegistrationNo: biz.taxRegistrationNo || '',
-                  email: biz.email || '',
-                  phone: biz.phone || '',
-                  logoUrl: biz.logoUrl || '',
-                  address: biz.address || {
-                    street: '',
-                    city: '',
-                    state: '',
-                    postalCode: '',
-                    country: '',
+              applyQuotationHandoff(
+                buildEmptyQuotation({
+                  currency: biz.defaultCurrency || 'USD',
+                  paymentTerms: biz.defaultPaymentTerms || '50% upfront, 50% on delivery',
+                  pageSize: preferredSize,
+                  businessSnapshot: {
+                    businessName: biz.businessName || '',
+                    taxRegistrationNo: biz.taxRegistrationNo || '',
+                    email: biz.email || '',
+                    phone: biz.phone || '',
+                    logoUrl: biz.logoUrl || '',
+                    address: biz.address || {
+                      street: '',
+                      city: '',
+                      state: '',
+                      postalCode: '',
+                      country: '',
+                    },
                   },
-                },
-                items: [
-                  {
-                    name: '',
-                    description: '',
-                    quantity: 1,
-                    unit: 'pcs',
-                    unitPrice: 0,
-                    discountType: 'percentage',
-                    discountValue: 0,
-                    taxRate: Number(biz.defaultTaxRate) || 0,
-                  },
-                ],
-              })
+                  items: [
+                    {
+                      name: '',
+                      description: '',
+                      quantity: 1,
+                      unit: 'pcs',
+                      unitPrice: 0,
+                      discountType: 'percentage',
+                      discountValue: 0,
+                      taxRate: Number(biz.defaultTaxRate) || 0,
+                    },
+                  ],
+                }),
+                handoffRef.current,
+                Number(biz.defaultTaxRate) || 0
+              )
             );
             setOverrideBusiness(false);
+          } else if (!cancelled && handoffRef.current) {
+            reset(applyQuotationHandoff(buildEmptyQuotation(), handoffRef.current, 0));
           }
         } catch {
-          if (!cancelled) setOverrideBusiness(true);
+          if (!cancelled) {
+            setOverrideBusiness(true);
+            if (handoffRef.current) {
+              reset(applyQuotationHandoff(buildEmptyQuotation(), handoffRef.current, 0));
+            }
+          }
         }
         hydratedRef.current = true;
         return;
@@ -333,7 +410,9 @@ export function QuotationGeneratorPage() {
         setSavedQuotation(null);
         setOverrideBusiness(true);
         const draft = loadDraft('quotation');
-        if (draft?.data) {
+        if (handoffRef.current) {
+          reset(applyQuotationHandoff(buildEmptyQuotation(), handoffRef.current, 0));
+        } else if (draft?.data) {
           const sanitizedPageSize =
             draft.data.pageSize === 'THERMAL_80' ? 'A4' : draft.data.pageSize || 'A4';
           reset(buildEmptyQuotation({ ...draft.data, pageSize: sanitizedPageSize }));
@@ -626,6 +705,28 @@ export function QuotationGeneratorPage() {
         lastSavedAt={lastSavedAt}
         onSignInClick={handleGuestSaveToCloud}
       />
+
+      {handoffProjectTitle ? (
+        <div
+          role="status"
+          data-testid="proposal-handoff-banner"
+          className="no-print flex items-center justify-between gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-xs font-semibold text-violet-800 shadow-sm"
+        >
+          <span>
+            Pre-filled from AI Proposal:{' '}
+            <span className="font-extrabold">{handoffProjectTitle}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setHandoffProjectTitle('')}
+            aria-label="Dismiss AI proposal pre-fill banner"
+            data-testid="dismiss-handoff-banner-btn"
+            className="rounded-md p-1 text-violet-600 hover:bg-violet-100"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ) : null}
 
       {formError ? (
         <div
