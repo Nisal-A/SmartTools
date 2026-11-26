@@ -220,7 +220,7 @@ if (validation.env.isProduction && validation.errors.length > 0) {
   // Fail fast in production without ever printing secret values
   console.error(
     '[SmartTools Env Fatal] Production environment validation failed:\n' +
-      validation.errors.map((err) => `  - ${err}`).join('\n')
+    validation.errors.map((err) => `  - ${err}`).join('\n')
   );
   process.exit(1);
 }
