@@ -31,6 +31,7 @@ const standaloneSuites = [
   path.join(__dirname, 'verifyInvoicesModule.test.js'),
   path.join(__dirname, 'verifyQuotationsModule.test.js'),
   path.join(__dirname, 'verifyReceiptsModule.test.js'),
+  path.join(__dirname, 'verifyPurchaseOrdersModule.test.js'),
   path.join(__dirname, 'verifyPdfEngine.test.js'),
 ];
 
