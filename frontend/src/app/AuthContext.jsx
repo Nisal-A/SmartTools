@@ -1,4 +1,11 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   SESSION_EXPIRED_EVENT,
   clearAuthStorage,
@@ -6,6 +13,7 @@ import {
   hasSessionHint,
   setSessionHint,
   setStoredAccessToken,
+  setStoredRefreshToken,
 } from '../services/apiClient.js';
 import {
   getMeApi,
@@ -21,6 +29,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  // Prevents stale initial-mount refresh calls from overwriting a newer login/register/logout
+  const authEpochRef = useRef(0);
   const [authModalState, setAuthModalState] = useState({
     isOpen: false,
     initialMode: 'register',
@@ -49,37 +59,57 @@ export function AuthProvider({ children }) {
    * completely so no 401 errors ever flash in the console.
    */
   const refreshUser = useCallback(async ({ force = false } = {}) => {
+    const startEpoch = authEpochRef.current;
     const token = getStoredAccessToken();
     const shouldTrySilentRefresh = hasSessionHint();
 
     if (!token && !shouldTrySilentRefresh && !force) {
-      setUser(null);
-      setLoading(false);
+      if (authEpochRef.current === startEpoch) {
+        setUser(null);
+        setLoading(false);
+      }
       return null;
     }
 
     try {
       if (token) {
         const currentUser = await getMeApi();
-        setUser(currentUser);
-        setSessionHint(Boolean(currentUser));
+        if (authEpochRef.current === startEpoch) {
+          setUser(currentUser);
+          setSessionHint(Boolean(currentUser));
+        }
         return currentUser;
       }
 
-      // Silent HttpOnly cookie refresh when session flag exists
+      // Silent HttpOnly cookie (+ cross-site fallback token) refresh via single-flight mutex
       const refreshed = await refreshApi();
-      if (refreshed.accessToken) {
-        setStoredAccessToken(refreshed.accessToken);
+      if (authEpochRef.current === startEpoch) {
+        if (refreshed.accessToken) {
+          setStoredAccessToken(refreshed.accessToken);
+        }
+        if (refreshed.refreshToken) {
+          setStoredRefreshToken(refreshed.refreshToken);
+        }
+        setUser(refreshed.user || null);
+        setSessionHint(Boolean(refreshed.user));
       }
-      setUser(refreshed.user || null);
-      setSessionHint(Boolean(refreshed.user));
       return refreshed.user || null;
-    } catch {
-      clearAuthStorage();
-      setUser(null);
+    } catch (err) {
+      if (authEpochRef.current !== startEpoch) {
+        return null;
+      }
+      const status = err?.response?.status;
+      // Only wipe stored session on definitive auth/account rejection (401/403/404),
+      // not on transient Render cold-start / network timeouts
+      if (status === 401 || status === 403 || status === 404) {
+        clearAuthStorage();
+        setUser(null);
+      }
       return null;
     } finally {
-      setLoading(false);
+      if (authEpochRef.current === startEpoch) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -87,28 +117,55 @@ export function AuthProvider({ children }) {
     refreshUser();
   }, [refreshUser]);
 
-  // Listen for refresh-token failure events dispatched by apiClient
+  // Listen for refresh-token failure events & cross-tab localStorage auth changes
   useEffect(() => {
     const handleSessionExpired = () => {
+      authEpochRef.current += 1;
       setUser(null);
       setLoading(false);
     };
+
+    const handleStorageSync = (event) => {
+      if (event.key === 'smarttools_access_token') {
+        if (!event.newValue) {
+          authEpochRef.current += 1;
+          setUser(null);
+          setLoading(false);
+        } else {
+          refreshUser({ force: true });
+        }
+      }
+    };
+
     window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
-    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
-  }, []);
+    window.addEventListener('storage', handleStorageSync);
+    return () => {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+      window.removeEventListener('storage', handleStorageSync);
+    };
+  }, [refreshUser]);
 
   const login = useCallback(async ({ email, password }) => {
-    const { accessToken, user: authedUser } = await loginApi({ email, password });
+    authEpochRef.current += 1;
+    const { accessToken, refreshToken, user: authedUser } = await loginApi({
+      email,
+      password,
+    });
     if (accessToken) {
       setStoredAccessToken(accessToken);
     }
+    if (refreshToken) {
+      setStoredRefreshToken(refreshToken);
+    }
     setSessionHint(true);
     setUser(authedUser || null);
+    setLoading(false);
     return authedUser;
   }, []);
 
   const register = useCallback(async ({ fullName, email, password, businessName }) => {
-    const { accessToken, user: authedUser } = await registerApi({
+    authEpochRef.current += 1;
+    const { accessToken, refreshToken, user: authedUser } = await registerApi({
       fullName,
       email,
       password,
@@ -117,12 +174,17 @@ export function AuthProvider({ children }) {
     if (accessToken) {
       setStoredAccessToken(accessToken);
     }
+    if (refreshToken) {
+      setStoredRefreshToken(refreshToken);
+    }
     setSessionHint(true);
     setUser(authedUser || null);
+    setLoading(false);
     return authedUser;
   }, []);
 
   const logout = useCallback(async () => {
+    authEpochRef.current += 1;
     try {
       await logoutApi();
     } catch {
@@ -130,6 +192,7 @@ export function AuthProvider({ children }) {
     }
     clearAuthStorage();
     setUser(null);
+    setLoading(false);
   }, []);
 
   /** Shallow-merges fields into the signed-in user (e.g. optimistic `pinnedToolIds` or `fullName`). */

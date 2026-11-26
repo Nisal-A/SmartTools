@@ -2,7 +2,8 @@ import axios from 'axios';
 
 /**
  * Sanitizes `VITE_API_BASE_URL` against accidental quotes, trailing slashes,
- * or Markdown hyperlink formatting (e.g. `[https://...](https://...)`).
+ * Markdown hyperlink formatting (e.g. `[https://...](https://...)`), missing `/api/v1`
+ * on bare host origins, or duplicate `/api/v1/api/v1` suffixes.
  */
 export function normalizeApiBaseUrl(rawUrl) {
   let cleaned = String(rawUrl || '')
@@ -10,7 +11,7 @@ export function normalizeApiBaseUrl(rawUrl) {
     .replace(/^['"]+|['"]+$/g, '')
     .trim();
 
-  const mdMatch = cleaned.match(/^\[[^\]]*\]\((https?:\/\/[^)\s]+)\)$/i);
+  const mdMatch = cleaned.match(/\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/i);
   if (mdMatch) {
     cleaned = mdMatch[1].trim();
   } else if (cleaned.startsWith('<') && cleaned.endsWith('>')) {
@@ -18,12 +19,24 @@ export function normalizeApiBaseUrl(rawUrl) {
   }
 
   cleaned = cleaned.replace(/\/+$/, '');
-  return cleaned || '/api/v1';
+  if (!cleaned) return '/api/v1';
+
+  // Collapse accidental duplicate `/api/v1/api/v1`
+  cleaned = cleaned.replace(/(\/api\/v1)+$/i, '/api/v1');
+
+  // If a full http(s) origin was supplied without any path (e.g. `https://smarttools-api.onrender.com`),
+  // append `/api/v1` automatically so auth & resource calls never 404.
+  if (/^https?:\/\/[^/]+$/i.test(cleaned)) {
+    cleaned = `${cleaned}/api/v1`;
+  }
+
+  return cleaned;
 }
 
-const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+export const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 const ACCESS_TOKEN_STORAGE_KEY = 'smarttools_access_token';
+const REFRESH_TOKEN_STORAGE_KEY = 'smarttools_refresh_token';
 const SESSION_HINT_STORAGE_KEY = 'smarttools_has_session';
 export const SESSION_EXPIRED_EVENT = 'smarttools:session-expired';
 
@@ -48,9 +61,33 @@ export function setStoredAccessToken(token) {
   }
 }
 
+export function getStoredRefreshToken() {
+  try {
+    return window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+export function setStoredRefreshToken(token) {
+  try {
+    if (token) {
+      window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token);
+      window.localStorage.setItem(SESSION_HINT_STORAGE_KEY, '1');
+    } else {
+      window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore storage quota / private mode errors
+  }
+}
+
 export function hasSessionHint() {
   try {
-    return window.localStorage.getItem(SESSION_HINT_STORAGE_KEY) === '1';
+    return (
+      window.localStorage.getItem(SESSION_HINT_STORAGE_KEY) === '1' ||
+      Boolean(window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY))
+    );
   } catch {
     return false;
   }
@@ -70,6 +107,7 @@ export function setSessionHint(active) {
 
 export function clearAuthStorage() {
   setStoredAccessToken('');
+  setStoredRefreshToken('');
   setSessionHint(false);
 }
 
@@ -91,19 +129,54 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor: automatic 401 refresh-token queue
-let isRefreshing = false;
-let failedQueue = [];
+/**
+ * Single-flight refresh promise shared by BOTH `AuthContext.refreshUser()` and
+ * Axios's 401 response interceptor so React 18 `<StrictMode>` double-mounts or
+ * concurrent 401 responses never send two simultaneous `/auth/refresh` requests
+ * with the same single-use rotated refresh token.
+ */
+let activeRefreshPromise = null;
 
-function processQueue(error, token = null) {
-  for (const pending of failedQueue) {
-    if (error) {
-      pending.reject(error);
-    } else {
-      pending.resolve(token);
-    }
+export async function performSessionRefresh() {
+  if (activeRefreshPromise) {
+    return activeRefreshPromise;
   }
-  failedQueue = [];
+
+  activeRefreshPromise = (async () => {
+    const fallbackRefreshToken = getStoredRefreshToken();
+    const refreshResponse = await axios.post(
+      `${API_BASE_URL}/auth/refresh`,
+      fallbackRefreshToken ? { refreshToken: fallbackRefreshToken } : {},
+      { withCredentials: true }
+    );
+
+    const payload = refreshResponse.data || {};
+    const newAccessToken = payload.accessToken || payload.data?.accessToken || '';
+    const newRefreshToken = payload.refreshToken || payload.data?.refreshToken || '';
+    const refreshedUser = payload.user || payload.data?.user || null;
+
+    if (!newAccessToken) {
+      throw new Error('Refresh response did not return an access token');
+    }
+
+    setStoredAccessToken(newAccessToken);
+    if (newRefreshToken) {
+      setStoredRefreshToken(newRefreshToken);
+    }
+    setSessionHint(true);
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      user: refreshedUser,
+    };
+  })();
+
+  try {
+    return await activeRefreshPromise;
+  } finally {
+    activeRefreshPromise = null;
+  }
 }
 
 function isAuthEndpoint(url = '') {
@@ -135,52 +208,22 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (isRefreshing) {
-      return new Promise((resolve, reject) => {
-        failedQueue.push({ resolve, reject });
-      })
-        .then((newToken) => {
-          originalRequest._retry = true;
-          originalRequest.headers = originalRequest.headers || {};
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          return apiClient(originalRequest);
-        })
-        .catch((queueErr) => Promise.reject(queueErr));
-    }
-
     originalRequest._retry = true;
-    isRefreshing = true;
 
     try {
-      const refreshResponse = await axios.post(
-        `${API_BASE_URL}/auth/refresh`,
-        {},
-        { withCredentials: true }
-      );
-      const newToken =
-        refreshResponse.data?.accessToken ||
-        refreshResponse.data?.data?.accessToken ||
-        '';
-
-      if (!newToken) {
-        throw new Error('Refresh response did not return an access token');
-      }
-
-      setStoredAccessToken(newToken);
-      processQueue(null, newToken);
-
+      const { accessToken: newToken } = await performSessionRefresh();
       originalRequest.headers = originalRequest.headers || {};
       originalRequest.headers.Authorization = `Bearer ${newToken}`;
       return apiClient(originalRequest);
     } catch (refreshError) {
-      processQueue(refreshError, null);
-      clearAuthStorage();
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+      const refreshStatus = refreshError?.response?.status;
+      if (refreshStatus === 401 || refreshStatus === 403) {
+        clearAuthStorage();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+        }
       }
       return Promise.reject(refreshError);
-    } finally {
-      isRefreshing = false;
     }
   }
 );

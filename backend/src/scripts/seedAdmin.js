@@ -68,15 +68,23 @@ export async function seedAdmin(options = {}) {
     adminUser = typeof createdDoc.toObject === 'function' ? createdDoc.toObject() : createdDoc;
     created = true;
   } else {
-    // Ensure role is 'admin' and account is active (idempotent update)
+    // Ensure role is 'admin', account is active, and passwordHash matches ADMIN_PASSWORD if changed
+    const passwordMatches = existingAdmin.passwordHash
+      ? await bcrypt.compare(adminPassword, existingAdmin.passwordHash)
+      : false;
+
+    const updateFields = {
+      role: 'admin',
+      isActive: true,
+    };
+
+    if (!passwordMatches) {
+      updateFields.passwordHash = await bcrypt.hash(adminPassword, BCRYPT_SALT_ROUNDS);
+    }
+
     const updatedDoc = await User.findByIdAndUpdate(
       existingAdmin._id,
-      {
-        $set: {
-          role: 'admin',
-          isActive: true,
-        },
-      },
+      { $set: updateFields },
       { new: true }
     ).lean();
     adminUser = updatedDoc || existingAdmin;

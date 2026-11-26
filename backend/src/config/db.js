@@ -678,6 +678,15 @@ export async function connectDatabase(uri, options = {}) {
     if (!allowFallback) {
       throw err;
     }
+    if (process.env.NODE_ENV !== 'test') {
+      const redactedMsg = String(err?.message || 'MongoDB unreachable').replace(
+        /\/\/[^/\s@]+@/g,
+        '//<redacted>@'
+      );
+      console.warn(
+        `[SmartTools DB Warning] Could not reach MongoDB (${redactedMsg}). Falling back to volatile in-memory DB (accounts/documents will reset on restart). Check MONGODB_URI and Atlas IP Network Access allowlist.`
+      );
+    }
     enableInMemoryMongooseEngine();
     activeDbName = DEFAULT_DB_NAME;
     return { isConnected: true, isInMemoryMode: true, dbName: activeDbName };

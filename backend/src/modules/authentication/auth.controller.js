@@ -20,14 +20,16 @@ import {
 
 export const registerController = asyncHandler(async (req, res) => {
   const { user, accessToken, refreshToken } = await registerUser(req.body);
-  setRefreshTokenCookie(res, refreshToken);
+  setRefreshTokenCookie(res, refreshToken, req);
 
   return res.status(201).json({
     success: true,
     accessToken,
+    refreshToken,
     user,
     data: {
       accessToken,
+      refreshToken,
       user,
     },
   });
@@ -35,14 +37,16 @@ export const registerController = asyncHandler(async (req, res) => {
 
 export const loginController = asyncHandler(async (req, res) => {
   const { user, accessToken, refreshToken } = await loginUser(req.body);
-  setRefreshTokenCookie(res, refreshToken);
+  setRefreshTokenCookie(res, refreshToken, req);
 
   return res.status(200).json({
     success: true,
     accessToken,
+    refreshToken,
     user,
     data: {
       accessToken,
+      refreshToken,
       user,
     },
   });
@@ -56,14 +60,16 @@ export const refreshController = asyncHandler(async (req, res) => {
     null;
 
   const { user, accessToken, refreshToken } = await refreshUserSession(rawRefreshToken);
-  setRefreshTokenCookie(res, refreshToken);
+  setRefreshTokenCookie(res, refreshToken, req);
 
   return res.status(200).json({
     success: true,
     accessToken,
+    refreshToken,
     user,
     data: {
       accessToken,
+      refreshToken,
       user,
     },
   });
@@ -81,7 +87,7 @@ export const logoutController = asyncHandler(async (req, res) => {
     refreshToken: rawRefreshToken,
   });
 
-  clearRefreshTokenCookie(res);
+  clearRefreshTokenCookie(res, req);
 
   return res.status(200).json({
     success: true,
@@ -119,7 +125,7 @@ export const updatePasswordController = asyncHandler(async (req, res) => {
     newPassword: req.body?.newPassword,
   });
 
-  clearRefreshTokenCookie(res);
+  clearRefreshTokenCookie(res, req);
 
   return res.status(200).json({
     success: true,

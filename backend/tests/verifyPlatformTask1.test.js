@@ -87,7 +87,25 @@ async function runTests() {
 
     const adminCount = await User.countDocuments({ email: 'admin@smarttools.dev' });
     assert.equal(adminCount, 1, 'Only 1 admin document should exist after running seedAdmin twice');
-    console.log('✓ 1. seedAdmin.js executed twice and confirmed idempotent');
+
+    // Verify changing ADMIN_PASSWORD updates passwordHash idempotently
+    process.env.ADMIN_PASSWORD = 'UpdatedAdminPassword@456';
+    const seedRun3 = await seedAdmin();
+    assert.equal(seedRun3.created, false, 'Password-sync seedAdmin run must stay idempotent');
+    const updatedAdminLogin = await fetch(`${apiUrl}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'admin@smarttools.dev',
+        password: 'UpdatedAdminPassword@456',
+      }),
+    });
+    assert.equal(updatedAdminLogin.status, 200, 'Admin must log in with synced ADMIN_PASSWORD');
+
+    // Restore test admin password for subsequent assertions
+    process.env.ADMIN_PASSWORD = 'AdminPassword@123';
+    await seedAdmin();
+    console.log('✓ 1. seedAdmin.js executed and confirmed idempotent (including password sync)');
 
     // =========================================================================
     // 2. User Signup (User A & User B) + Bcrypt 12 rounds + Default Profiles
@@ -191,7 +209,22 @@ async function runTests() {
       401,
       'Replaying rotated-out refresh token must return 401'
     );
-    console.log('✓ 3. Login and refresh token rotation verified');
+
+    // Cross-site fallback: POST /auth/refresh via JSON body when third-party cookies are blocked
+    assert.ok(refreshBody.refreshToken, 'Refresh response must include fallback refreshToken');
+    const bodyFallbackRefreshRes = await fetch(`${apiUrl}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: refreshBody.refreshToken }),
+    });
+    assert.equal(
+      bodyFallbackRefreshRes.status,
+      200,
+      'Cross-site JSON body refreshToken fallback must return 200'
+    );
+    const bodyFallbackData = await bodyFallbackRefreshRes.json();
+    tokenA = bodyFallbackData.accessToken;
+    console.log('✓ 3. Login, cookie & cross-site body refresh token rotation verified');
 
     // =========================================================================
     // 4. Pinned Tools Update, Password Change & RBAC (requireAuth, optionalAuth, requireAdmin)
