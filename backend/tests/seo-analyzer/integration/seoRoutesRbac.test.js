@@ -1,3 +1,6 @@
+process.env.NODE_ENV = 'test';
+process.env.USE_IN_MEMORY_DB = 'true';
+
 import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

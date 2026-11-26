@@ -15,8 +15,12 @@
     "dev": "node --watch src/server.js",
     "seed:admin": "node src/scripts/seedAdmin.js",
     "verify:deploy": "node src/scripts/verifyDeployReadiness.js",
+    "test": "node tests/runAllTests.js",
+    "test:render": "node tests/verifyRenderReadiness.test.js",
     "test:auth": "node tests/verifyPlatformTask1.test.js",
     "test:history": "node tests/verifyPlatformTask2.test.js",
+    "test:invoices": "node tests/verifyInvoicesModule.test.js",
+    "test:quotations": "node tests/verifyQuotationsModule.test.js",
     "test:pdf": "node tests/verifyPdfEngine.test.js",
     "test:seo": "node --test tests/seo-analyzer/unit/*.test.js tests/seo-analyzer/integration/*.test.js",
     "test:qa": "node tests/verifyPlatformFinalQA.test.js"

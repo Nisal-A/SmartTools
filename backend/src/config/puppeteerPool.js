@@ -111,7 +111,7 @@ export function isAllowedPdfRequest(urlStr, resourceType = '') {
  */
 function resolveChromiumExecutablePath() {
   const envPath = (process.env.PUPPETEER_EXECUTABLE_PATH || '').trim();
-  if (envPath) {
+  if (envPath && fs.existsSync(envPath)) {
     return envPath;
   }
 
@@ -222,10 +222,7 @@ export async function getWarmBrowser() {
     return browserLaunchPromise;
   }
 
-  const executablePath =
-    process.env.PUPPETEER_EXECUTABLE_PATH?.trim() ||
-    resolveChromiumExecutablePath() ||
-    undefined;
+  const executablePath = resolveChromiumExecutablePath() || undefined;
 
   const launchEnv =
     process.platform === 'win32'

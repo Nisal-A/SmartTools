@@ -654,6 +654,18 @@ export async function connectDatabase(uri, options = {}) {
     uri || process.env.MONGODB_URI || `mongodb://127.0.0.1:27017/${DEFAULT_DB_NAME}`;
 
   const isProd = process.env.NODE_ENV === 'production';
+  const forceInMemory =
+    !isProd &&
+    !uri &&
+    options.allowInMemoryFallback !== false &&
+    (process.env.USE_IN_MEMORY_DB === 'true' || process.env.NODE_ENV === 'test');
+
+  if (forceInMemory) {
+    enableInMemoryMongooseEngine();
+    activeDbName = DEFAULT_DB_NAME;
+    return { isConnected: true, isInMemoryMode: true, dbName: activeDbName };
+  }
+
   const allowFallback =
     !isProd && options.allowInMemoryFallback !== false;
 

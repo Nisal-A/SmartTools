@@ -1,3 +1,6 @@
+process.env.NODE_ENV = 'test';
+process.env.USE_IN_MEMORY_DB = 'true';
+
 import assert from 'node:assert/strict';
 import express from 'express';
 import mongoose from 'mongoose';
