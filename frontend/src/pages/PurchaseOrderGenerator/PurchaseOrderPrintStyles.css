@@ -1,0 +1,93 @@
+/*
+ * Purchase Order Generator Preview Stage & Clean A4 (210mm x 297mm) @media print Isolation
+ */
+
+.po-preview-stage {
+  position: relative;
+  width: 100%;
+  overflow: auto;
+  background-color: #e2e8f0;
+  background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.po-sheet--a4 {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 14mm;
+  background: #ffffff;
+  color: #0f172a;
+  box-sizing: border-box;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 9.5pt;
+  line-height: 1.45;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 20px 45px -15px rgba(15, 23, 42, 0.24), 0 0 0 1px rgba(15, 23, 42, 0.08);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.po-sheet--a4 *,
+.po-sheet--a4 *::before,
+.po-sheet--a4 *::after {
+  box-sizing: border-box;
+}
+
+.po-sheet--a4 thead {
+  display: table-header-group;
+}
+
+.po-sheet--a4 tr,
+.po-sheet--a4 .po-keep-together {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+@media print {
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .po-printable-root,
+  .po-printable-root * {
+    visibility: visible !important;
+  }
+
+  .po-printable-root {
+    position: fixed !important;
+    inset: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  .po-scale-outer,
+  .po-scale-inner {
+    width: auto !important;
+    height: auto !important;
+    transform: none !important;
+  }
+
+  .po-sheet--a4 {
+    box-shadow: none !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+}

@@ -34,6 +34,9 @@ const TOOL_PAGE_COMPONENTS = {
   'receipt-generator': lazy(() =>
     import('../pages/ReceiptGenerator/ReceiptGeneratorPage.jsx')
   ),
+  'purchase-order-generator': lazy(() =>
+    import('../pages/PurchaseOrderGenerator/PurchaseOrderGeneratorPage.jsx')
+  ),
 };
 
 function RouteFallback() {
