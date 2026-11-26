@@ -1,6 +1,8 @@
+process.env.NODE_ENV = 'test';
+
 import assert from 'node:assert/strict';
 import {
-  connectDatabase,
+  enableInMemoryMongooseEngine,
   clearInMemoryDatabase,
   disconnectDatabase,
 } from '../src/config/db.js';
@@ -14,7 +16,7 @@ console.log(
 );
 
 async function runTests() {
-  await connectDatabase();
+  enableInMemoryMongooseEngine();
   clearInMemoryDatabase();
 
   const app = createApp();

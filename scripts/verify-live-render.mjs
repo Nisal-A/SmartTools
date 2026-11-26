@@ -344,7 +344,7 @@ async function checkAuthCookiesRefreshAndLogout(sharedState) {
   }
 
   if (
-    IS_HTTPS_TARGET &&
+    EXPECT_CROSS_ORIGIN_SECURE_COOKIES &&
     (!/;\s*Secure/i.test(logoutCookie.rawHeader) ||
       !/;\s*SameSite=None/i.test(logoutCookie.rawHeader))
   ) {

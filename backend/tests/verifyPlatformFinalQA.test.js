@@ -1,10 +1,12 @@
+process.env.NODE_ENV = 'test';
+
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import puppeteer from 'puppeteer';
 import {
-  connectDatabase,
+  enableInMemoryMongooseEngine,
   clearInMemoryDatabase,
   disconnectDatabase,
 } from '../src/config/db.js';
@@ -30,7 +32,7 @@ function findBrowserExecutable() {
 console.log('=== Running Platform Task 5: Full 5-Point End-to-End QA Suite ===');
 
 async function runFinalQA() {
-  await connectDatabase();
+  enableInMemoryMongooseEngine();
   clearInMemoryDatabase();
 
   // Seed initial Admin user

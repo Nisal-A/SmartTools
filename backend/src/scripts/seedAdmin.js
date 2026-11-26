@@ -8,7 +8,8 @@ import { BCRYPT_SALT_ROUNDS } from '../modules/authentication/auth.service.js';
 import { UserProfile } from '../modules/profiles/userProfile.model.js';
 import { BusinessProfile } from '../modules/profiles/businessProfile.model.js';
 
-dotenv.config();
+const __scriptDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__scriptDir, '../../.env') });
 
 /**
  * Idempotent Admin Bootstrap Script (`backend/src/scripts/seedAdmin.js`)
@@ -40,7 +41,14 @@ export async function seedAdmin(options = {}) {
     );
   }
 
-  await connectDatabase();
+  const isCliDirect =
+    process.argv[1] &&
+    fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+
+  const dbStatus = await connectDatabase(undefined, {
+    allowInMemoryFallback:
+      options.allowInMemoryFallback ?? !isCliDirect,
+  });
 
   let existingAdmin = await User.findOne({ email: adminEmail }).lean();
   let created = false;
@@ -113,6 +121,8 @@ export async function seedAdmin(options = {}) {
 
   return {
     created,
+    dbName: dbStatus.dbName,
+    inMemory: dbStatus.isInMemoryMode,
     admin: {
       id: String(adminUser._id),
       email: adminUser.email,
@@ -129,13 +139,16 @@ const executedFilePath = process.argv[1] ? path.resolve(process.argv[1]) : '';
 if (currentFilePath === executedFilePath) {
   seedAdmin()
     .then((result) => {
+      const targetLabel = result.inMemory
+        ? 'in-memory'
+        : `MongoDB (${result.dbName})`;
       if (result.created) {
         console.log(
-          `[seedAdmin] Created initial admin user: ${result.admin.email} (id: ${result.admin.id})`
+          `[seedAdmin] Created initial admin user in ${targetLabel}: ${result.admin.email} (id: ${result.admin.id})`
         );
       } else {
         console.log(
-          `[seedAdmin] Admin user already exists (idempotent no-op): ${result.admin.email} (id: ${result.admin.id})`
+          `[seedAdmin] Verified existing admin user in ${targetLabel}: ${result.admin.email} (id: ${result.admin.id})`
         );
       }
       return disconnectDatabase();

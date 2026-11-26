@@ -3,12 +3,22 @@ import './config/env.js';
 import { createApp } from './app.js';
 import { connectDatabase, disconnectDatabase } from './config/db.js';
 import { shutdownPuppeteerPool } from './config/puppeteerPool.js';
+import { seedAdmin } from './scripts/seedAdmin.js';
 
 const PORT = Number(process.env.PORT) || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
 
 async function startServer() {
   const dbStatus = await connectDatabase();
+
+  if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
+    try {
+      await seedAdmin();
+    } catch (err) {
+      console.warn('[SmartTools Backend] Non-fatal admin bootstrap warning:', err.message);
+    }
+  }
+
   const app = createApp();
 
   const server = app.listen(PORT, HOST, () => {

@@ -1,6 +1,8 @@
+process.env.NODE_ENV = 'test';
+
 import assert from 'node:assert/strict';
 import {
-  connectDatabase,
+  enableInMemoryMongooseEngine,
   clearInMemoryDatabase,
   disconnectDatabase,
 } from '../src/config/db.js';
@@ -31,7 +33,7 @@ function extractCookieValue(setCookieHeader, cookieName = 'refreshToken') {
 }
 
 async function runTests() {
-  await connectDatabase();
+  enableInMemoryMongooseEngine();
   clearInMemoryDatabase();
 
   const app = createApp();

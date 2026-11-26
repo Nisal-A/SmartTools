@@ -149,7 +149,13 @@ export const validateEnv = (source = {}, options = {}) => {
 
     for (const key of PRODUCTION_ONLY_REQUIRED_ENV_KEYS) {
       if (!readString(source, key)) {
-        missingKeys.push(key);
+        if (options.strictProduction === true) {
+          missingKeys.push(key);
+        } else {
+          warnings.push(
+            `Optional production key ${key} is not set (related feature such as Cloudinary upload or ping auth key will be disabled until configured).`
+          );
+        }
       }
     }
 
