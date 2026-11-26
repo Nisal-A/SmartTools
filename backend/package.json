@@ -21,6 +21,7 @@
     "test:history": "node tests/verifyPlatformTask2.test.js",
     "test:invoices": "node tests/verifyInvoicesModule.test.js",
     "test:quotations": "node tests/verifyQuotationsModule.test.js",
+    "test:receipts": "node tests/verifyReceiptsModule.test.js",
     "test:pdf": "node tests/verifyPdfEngine.test.js",
     "test:seo": "node --test tests/seo-analyzer/unit/*.test.js tests/seo-analyzer/integration/*.test.js",
     "test:qa": "node tests/verifyPlatformFinalQA.test.js"
