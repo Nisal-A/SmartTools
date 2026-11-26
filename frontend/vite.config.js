@@ -24,8 +24,22 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:5000',
+        target: process.env.VITE_DEV_API_PROXY || 'http://127.0.0.1:5000',
         changeOrigin: true,
+        configure(proxy) {
+          proxy.on('error', (_err, _req, res) => {
+            if (res && !res.headersSent && typeof res.writeHead === 'function') {
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(
+                JSON.stringify({
+                  success: false,
+                  message:
+                    'Backend API server (127.0.0.1:5000) is unreachable or still starting up. Start it with: npm --prefix backend run dev (or npm run dev from root).',
+                })
+              );
+            }
+          });
+        },
       },
     },
   },

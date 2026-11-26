@@ -9,6 +9,9 @@
     "url": "https://github.com/Nisal-A/SmartTools.git"
   },
   "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
     "test": "npm --prefix shared test && npm --prefix backend test",
     "verify:live": "node scripts/verify-live-render.mjs",
     "verify:deploy": "npm --prefix backend run verify:deploy",
