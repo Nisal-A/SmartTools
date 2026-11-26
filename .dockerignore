@@ -21,6 +21,7 @@ frontend
 # Temporary migration folders, docs & automated test suites
 _tmp_*
 docs
+scripts
 **/tests
 **/*.test.js
 MASTERPLAN.md

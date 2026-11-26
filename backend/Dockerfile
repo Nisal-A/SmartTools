@@ -8,10 +8,11 @@
 
 FROM node:20-slim
 
-# Install headless Chromium + standard fonts + TLS CA certificates for Puppeteer PDF rendering
+# Install headless Chromium + standard fonts + dumb-init PID 1 reaper for Puppeteer PDF rendering
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
      chromium \
+     dumb-init \
      fonts-liberation \
      fonts-noto-core \
      ca-certificates \
@@ -19,6 +20,7 @@ RUN apt-get update \
 
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    HOME=/tmp \
     NODE_ENV=production
 
 WORKDIR /app
@@ -39,4 +41,5 @@ WORKDIR /app/backend
 
 EXPOSE 5000
 
+ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "src/server.js"]

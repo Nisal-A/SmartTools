@@ -19,8 +19,29 @@ import {
 } from './middleware/errorHandler.middleware.js';
 
 /**
+ * Unwraps accidental quotes, angle brackets, or Markdown link formatting
+ * (e.g. `[https://app.example.com](https://app.example.com)`) from env URLs.
+ */
+export function unwrapEnvUrl(value = '') {
+  let cleaned = String(value || '')
+    .trim()
+    .replace(/^['"]+|['"]+$/g, '')
+    .trim();
+
+  const markdownMatch = cleaned.match(/^\[[^\]]*\]\((https?:\/\/[^)\s]+)\)$/i);
+  if (markdownMatch) {
+    cleaned = markdownMatch[1].trim();
+  } else if (cleaned.startsWith('<') && cleaned.endsWith('>')) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+
+  return cleaned;
+}
+
+/**
  * Normalizes `CLIENT_URL` (plus legacy `FRONTEND_ORIGIN` / `CLIENT_ORIGIN` fallbacks)
- * by splitting comma-separated URLs and stripping trailing slashes.
+ * by splitting comma-separated URLs, unwrapping accidental Markdown links, and
+ * normalizing to exact `protocol://host` origins without trailing slashes.
  */
 export function getNormalizedAllowedOrigins() {
   const raw =
@@ -29,10 +50,23 @@ export function getNormalizedAllowedOrigins() {
     process.env.CLIENT_ORIGIN ||
     '';
 
-  return raw
+  const origins = raw
     .split(',')
-    .map((entry) => entry.trim().replace(/\/+$/, ''))
-    .filter(Boolean);
+    .map((entry) => unwrapEnvUrl(entry).replace(/\/+$/, ''))
+    .filter(Boolean)
+    .map((entry) => {
+      try {
+        const parsed = new URL(entry);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          return parsed.origin;
+        }
+      } catch {
+        // Fall back to stripped string if non-URL value was supplied
+      }
+      return entry;
+    });
+
+  return [...new Set(origins)];
 }
 
 function safeCompareSecret(provided, expected) {

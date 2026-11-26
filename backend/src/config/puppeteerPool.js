@@ -13,13 +13,18 @@ import puppeteer from 'puppeteer';
  * 5. Guaranteed page & context cleanup in `finally` blocks + SIGINT/SIGTERM hooks.
  */
 
+// Note: `--single-process` and `--no-zygote` are intentionally excluded because modern
+// Debian Chromium 120+ under `--headless=new` crashes immediately on `Target.createTarget`
+// (`Protocol error (Target.createTarget): Target closed`). `--renderer-process-limit=1`
+// and `--disable-site-isolation-trials` safely cap memory on Render's 512 MB RAM tier.
 export const RENDER_SAFE_CHROMIUM_ARGS = [
   '--no-sandbox',
   '--disable-setuid-sandbox',
   '--disable-dev-shm-usage',
   '--disable-gpu',
-  '--no-zygote',
-  '--single-process',
+  '--disable-software-rasterizer',
+  '--renderer-process-limit=1',
+  '--disable-site-isolation-trials',
 ];
 
 function getMaxConcurrentRenders() {
@@ -144,21 +149,18 @@ function resolveChromiumExecutablePath() {
 }
 
 function buildChromiumArgs() {
-  // Note: On Windows desktop Chrome, `--single-process` can crash Win32 renderer threads;
-  // on Linux/Docker (Render), the full low-memory flag set is used.
-  const baseFlags =
-    process.platform === 'win32' && process.env.NODE_ENV !== 'production'
-      ? RENDER_SAFE_CHROMIUM_ARGS.filter(
-          (flag) => flag !== '--single-process' && flag !== '--no-zygote'
-        )
-      : [...RENDER_SAFE_CHROMIUM_ARGS];
-
   return [
-    ...baseFlags,
+    ...RENDER_SAFE_CHROMIUM_ARGS,
+    '--disable-features=site-per-process,Translate,BackForwardCache,MediaRouter,OptimizationHints',
     '--disable-extensions',
     '--disable-background-networking',
+    '--disable-default-apps',
     '--disable-sync',
     '--disable-translate',
+    '--disable-breakpad',
+    '--disable-crash-reporter',
+    '--mute-audio',
+    '--hide-scrollbars',
     '--no-first-run',
     '--safebrowsing-disable-auto-update',
   ];
@@ -225,11 +227,22 @@ export async function getWarmBrowser() {
     resolveChromiumExecutablePath() ||
     undefined;
 
+  const launchEnv =
+    process.platform === 'win32'
+      ? process.env
+      : {
+          ...process.env,
+          HOME: process.env.HOME || '/tmp',
+          XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME || '/tmp/.chromium-config',
+          XDG_CACHE_HOME: process.env.XDG_CACHE_HOME || '/tmp/.chromium-cache',
+        };
+
   browserLaunchPromise = puppeteer
     .launch({
       headless: true,
       executablePath,
       args: buildChromiumArgs(),
+      env: launchEnv,
     })
     .then((browser) => {
       browserInstance = browser;
@@ -252,12 +265,21 @@ export async function getWarmBrowser() {
 }
 
 async function openIsolatedContextAndPage(browser) {
-  const context =
-    typeof browser.createBrowserContext === 'function'
-      ? await browser.createBrowserContext()
-      : await browser.createIncognitoBrowserContext();
-  const page = await context.newPage();
-  return { context, page };
+  try {
+    const context =
+      typeof browser.createBrowserContext === 'function'
+        ? await browser.createBrowserContext()
+        : await browser.createIncognitoBrowserContext();
+    const page = await context.newPage();
+    return { context, page };
+  } catch (err) {
+    // Fallback to default browser context page if incognito context creation is unsupported
+    if (browser && browser.connected) {
+      const page = await browser.newPage();
+      return { context: null, page };
+    }
+    throw err;
+  }
 }
 
 /**

@@ -35,6 +35,26 @@ const readString = (source, name) => {
   return typeof value === 'string' ? value.trim() : '';
 };
 
+/**
+ * Strips surrounding quotes, `<url>` brackets, or Markdown `[label](url)` formatting
+ * when environment variables are pasted from documentation.
+ */
+export const unwrapEnvUrl = (raw = '') => {
+  let cleaned = String(raw || '')
+    .trim()
+    .replace(/^['"]+|['"]+$/g, '')
+    .trim();
+
+  const mdMatch = cleaned.match(/^\[[^\]]*\]\(([a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^)\s]+)\)$/);
+  if (mdMatch) {
+    cleaned = mdMatch[1].trim();
+  } else if (cleaned.startsWith('<') && cleaned.endsWith('>')) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+
+  return cleaned;
+};
+
 const parseInteger = (source, name, rule, errors) => {
   const raw = readString(source, name);
   if (raw === '') return rule.default;
@@ -53,7 +73,7 @@ const parseInteger = (source, name, rule, errors) => {
 const parseOriginList = (raw, errors) => {
   const parts = raw
     .split(',')
-    .map((item) => item.trim())
+    .map((item) => unwrapEnvUrl(item))
     .filter(Boolean);
 
   if (parts.length === 0) return DEFAULT_CLIENT_ORIGIN;
@@ -113,7 +133,7 @@ export const validateEnv = (source = {}, options = {}) => {
   const isProd = nodeEnv === 'production' || options.strictProduction === true;
 
   // Check required keys
-  const rawMongoUri = readString(source, 'MONGODB_URI');
+  const rawMongoUri = unwrapEnvUrl(readString(source, 'MONGODB_URI'));
   const rawJwtAccess = readString(source, 'JWT_ACCESS_SECRET');
   const rawJwtRefresh = readString(source, 'JWT_REFRESH_SECRET');
   const rawClientUrl =

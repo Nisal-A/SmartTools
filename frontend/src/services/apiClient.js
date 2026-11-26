@@ -1,6 +1,27 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+/**
+ * Sanitizes `VITE_API_BASE_URL` against accidental quotes, trailing slashes,
+ * or Markdown hyperlink formatting (e.g. `[https://...](https://...)`).
+ */
+export function normalizeApiBaseUrl(rawUrl) {
+  let cleaned = String(rawUrl || '')
+    .trim()
+    .replace(/^['"]+|['"]+$/g, '')
+    .trim();
+
+  const mdMatch = cleaned.match(/^\[[^\]]*\]\((https?:\/\/[^)\s]+)\)$/i);
+  if (mdMatch) {
+    cleaned = mdMatch[1].trim();
+  } else if (cleaned.startsWith('<') && cleaned.endsWith('>')) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+
+  cleaned = cleaned.replace(/\/+$/, '');
+  return cleaned || '/api/v1';
+}
+
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 const ACCESS_TOKEN_STORAGE_KEY = 'smarttools_access_token';
 const SESSION_HINT_STORAGE_KEY = 'smarttools_has_session';

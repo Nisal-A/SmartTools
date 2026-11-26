@@ -15,9 +15,9 @@ async function verifyRenderReadiness() {
   const prevKeepalive = process.env.KEEPALIVE_SECRET;
 
   try {
-    // 1. Express trust proxy === 1 & CLIENT_URL normalization (trailing slash + comma-separated)
+    // 1. Express trust proxy === 1 & CLIENT_URL normalization (trailing slash + comma-separated + markdown links)
     process.env.CLIENT_URL =
-      'https://smarttools-ui.onrender.com/, https://preview.smarttools.dev/';
+      '[https://smarttools-ui.onrender.com/](https://smarttools-ui.onrender.com/), https://preview.smarttools.dev/';
     assert.deepEqual(getNormalizedAllowedOrigins(), [
       'https://smarttools-ui.onrender.com',
       'https://preview.smarttools.dev',
@@ -87,14 +87,19 @@ async function verifyRenderReadiness() {
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
-      '--no-zygote',
-      '--single-process',
+      '--disable-software-rasterizer',
+      '--renderer-process-limit=1',
+      '--disable-site-isolation-trials',
     ]) {
       assert.ok(
         RENDER_SAFE_CHROMIUM_ARGS.includes(requiredFlag),
         `Missing Render Chromium flag: ${requiredFlag}`
       );
     }
+    assert.ok(
+      !RENDER_SAFE_CHROMIUM_ARGS.includes('--single-process'),
+      '--single-process must be omitted so Debian Chromium 120+ does not crash on Target.createTarget'
+    );
     console.log('✓ 4. Puppeteer Render 512MB flags & production concurrency cap (2) verified');
 
     console.log('\nALL RENDER DEPLOYMENT READINESS CHECKS PASSED!');
