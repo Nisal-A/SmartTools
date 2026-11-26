@@ -37,6 +37,9 @@ const TOOL_PAGE_COMPONENTS = {
   'purchase-order-generator': lazy(() =>
     import('../pages/PurchaseOrderGenerator/PurchaseOrderGeneratorPage.jsx')
   ),
+  'expense-tracker': lazy(() =>
+    import('../pages/ExpenseTracker/ExpenseTrackerPage.jsx')
+  ),
 };
 
 function RouteFallback() {
@@ -79,7 +82,10 @@ export function AppRouter() {
             (tool) => isToolLaunchable(tool) && Boolean(TOOL_PAGE_COMPONENTS[tool.id])
           ).map((tool) => {
             const ToolPage = TOOL_PAGE_COMPONENTS[tool.id];
-            const Wrapper = tool.supportsGuestMode ? PublicOrAuthRoute : ProtectedRoute;
+            const Wrapper =
+              tool.supportsGuestMode || tool.rendersOwnAuthGate
+                ? PublicOrAuthRoute
+                : ProtectedRoute;
             const usesNestedRouter = tool.id === 'seo-analyzer';
 
             if (usesNestedRouter) {
