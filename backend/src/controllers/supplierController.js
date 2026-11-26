@@ -89,6 +89,7 @@ export const listSuppliers = asyncHandler(async (req, res) => {
     success: true,
     count: suppliers.length,
     data: suppliers,
+    suppliers,
   });
 });
 
@@ -103,6 +104,7 @@ export const createSupplier = asyncHandler(async (req, res) => {
   return res.status(201).json({
     success: true,
     data: supplier,
+    supplier,
   });
 });
 
@@ -125,6 +127,7 @@ export const updateSupplier = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     data: updated,
+    supplier: updated,
   });
 });
 

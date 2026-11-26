@@ -157,14 +157,7 @@ export const createPurchaseOrder = asyncHandler(async (req, res) => {
     }
   }
 
-  if (!supplierSnapshot.name) {
-    throw new AppError('supplier.name is required.', 400);
-  }
-
   const totals = computePurchaseOrderTotals(items, { taxRate, discount });
-  if (discount > totals.subtotal) {
-    throw new AppError('discount cannot exceed the order subtotal.', 400);
-  }
 
   const rawBuyer = body.buyer && typeof body.buyer === 'object' ? body.buyer : {};
   const explicitPoNumber = str(body.poNumber);
@@ -223,6 +216,7 @@ export const createPurchaseOrder = asyncHandler(async (req, res) => {
   return res.status(201).json({
     success: true,
     data: saved,
+    purchaseOrder: saved,
   });
 });
 
@@ -245,6 +239,7 @@ export const getMyPurchaseOrders = asyncHandler(async (req, res) => {
     success: true,
     count: purchaseOrders.length,
     data: purchaseOrders,
+    purchaseOrders,
   });
 });
 
@@ -313,6 +308,7 @@ export const getAdminPurchaseOrders = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     data: purchaseOrders,
+    purchaseOrders,
     pagination: {
       page,
       limit,

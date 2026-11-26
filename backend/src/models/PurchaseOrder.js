@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import mongoose from 'mongoose';
 
 /**
@@ -54,7 +55,7 @@ const lineItemSubSchema = new mongoose.Schema(
     sku: { type: String, trim: true, default: '' },
     quantity: { type: Number, required: true, min: 0 },
     unitPrice: { type: Number, required: true, min: 0 },
-    lineTotal: { type: Number, required: true, min: 0 },
+    lineTotal: { type: Number, default: 0, min: 0 },
   },
   { _id: false }
 );
@@ -86,9 +87,23 @@ const approvalsSubSchema = new mongoose.Schema(
   { _id: false }
 );
 
+function buildFallbackPoNumber(date = new Date()) {
+  const year =
+    date instanceof Date && !Number.isNaN(date.getTime())
+      ? date.getUTCFullYear()
+      : new Date().getUTCFullYear();
+  const suffix = String(crypto.randomInt(1, 10000)).padStart(4, '0');
+  return `PO-${year}-${suffix}`;
+}
+
 const purchaseOrderSchema = new mongoose.Schema(
   {
-    poNumber: { type: String, required: true, trim: true },
+    poNumber: {
+      type: String,
+      required: true,
+      trim: true,
+      default: () => buildFallbackPoNumber(),
+    },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -125,6 +140,28 @@ const purchaseOrderSchema = new mongoose.Schema(
 purchaseOrderSchema.index({ poNumber: 1 }, { unique: true });
 purchaseOrderSchema.index({ userId: 1, createdAt: -1 });
 purchaseOrderSchema.index({ createdAt: -1 });
+
+purchaseOrderSchema.pre('validate', function preValidatePurchaseOrder(next) {
+  if (!this.poNumber || !String(this.poNumber).trim()) {
+    this.poNumber = buildFallbackPoNumber(this.issueDate);
+  }
+
+  const rawItems = Array.isArray(this.items) ? this.items : [];
+  const totals = computePurchaseOrderTotals(
+    rawItems.map((item) => (typeof item.toObject === 'function' ? item.toObject() : item)),
+    { taxRate: this.taxRate, discount: this.discount }
+  );
+
+  for (let i = 0; i < rawItems.length; i += 1) {
+    rawItems[i].lineTotal = totals.items[i].lineTotal;
+  }
+  this.subtotal = totals.subtotal;
+  this.discount = totals.discount;
+  this.taxAmount = totals.taxAmount;
+  this.grandTotal = totals.grandTotal;
+
+  next();
+});
 
 export const PurchaseOrder =
   mongoose.models.PurchaseOrder ||
