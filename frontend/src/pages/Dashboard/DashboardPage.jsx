@@ -18,6 +18,7 @@ import {
 import { formatCurrency } from '../../../../shared/utils/financialMath.js';
 import { useAuth } from '../../app/AuthContext.jsx';
 import { usePinnedTools } from '../../hooks/usePinnedTools.js';
+import { getActiveTools } from '../../config/toolsRegistry.js';
 import {
   exportDocumentPdfApi,
   getDashboardSummaryApi,
@@ -247,6 +248,55 @@ export function DashboardPage() {
                   <p className="truncate text-xs text-slate-500">{tool.tagline}</p>
                 </div>
                 <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-indigo-600" />
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* All Active Business Tools */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="dashboard-active-tools">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+              All Active Tools ({getActiveTools().length})
+            </h2>
+            <p className="text-xs text-slate-500">
+              Invoices, quotations, receipts, purchase orders, expense tracking, AI proposals, and SEO audits.
+            </p>
+          </div>
+          <Link
+            to="/tools"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+          >
+            Tools Hub <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {getActiveTools().map((tool) => {
+            const accent = getAccentStyles(tool.accentColor);
+            return (
+              <Link
+                key={tool.id}
+                to={tool.route}
+                data-testid={`dashboard-tool-${tool.id}`}
+                className={`group flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3.5 transition hover:-translate-y-0.5 hover:shadow-sm ${accent.hoverBorder}`}
+              >
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${accent.iconWrap}`}>
+                  <ToolIcon name={tool.iconName} className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="truncate text-xs font-bold text-slate-900">{tool.name}</p>
+                    {Boolean(tool.guestReadyBadge) && (
+                      <span className="inline-flex rounded-full bg-sky-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-sky-700 ring-1 ring-sky-200">
+                        Guest Ready
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 truncate text-[11px] text-slate-500">{tool.tagline}</p>
+                </div>
               </Link>
             );
           })}

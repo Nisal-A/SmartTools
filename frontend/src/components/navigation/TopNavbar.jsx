@@ -198,6 +198,9 @@ export function TopNavbar({ variant = 'guest', onToggleMobileNav }) {
               </>
             ) : (
               <>
+                <div className="hidden md:block">
+                  <ToolsMegaMenu />
+                </div>
                 <Dropdown
                   testId="quick-create-menu"
                   trigger={({ isOpen, toggle }) => (

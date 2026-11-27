@@ -48,10 +48,15 @@ export function ToolsMegaMenuPanel({ onNavigate, compact = false }) {
                           <ToolIcon name={tool.iconName} className="h-3.5 w-3.5" />
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="flex items-center gap-1.5">
+                          <span className="flex flex-wrap items-center gap-1.5">
                             <span className="truncate text-[13px] font-semibold text-slate-800 group-hover:text-slate-900">
                               {tool.name}
                             </span>
+                            {Boolean(tool.guestReadyBadge) && (
+                              <span className="inline-flex items-center rounded-full bg-sky-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-sky-700 ring-1 ring-sky-200">
+                                Guest Ready
+                              </span>
+                            )}
                             {tool.status !== 'active' && <ToolStatusPill status={tool.status} />}
                           </span>
                           <span className="block truncate text-[11px] text-slate-500">{tool.tagline}</span>

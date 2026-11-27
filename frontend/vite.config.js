@@ -17,6 +17,18 @@ export default defineConfig({
       zod: path.resolve(__dirname, 'node_modules/zod'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-charts': ['recharts'],
+          'vendor-icons': ['lucide-react'],
+          'vendor-utils': ['axios', 'zod', 'react-hook-form', '@hookform/resolvers'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     fs: {

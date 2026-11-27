@@ -84,6 +84,7 @@ const RAW_TOOLS = [
     category: 'finance',
     tags: ['invoice', 'billing', 'payments', 'pdf', 'thermal', 'receipt', 'a4', 'a5'],
     supportsGuestMode: true,
+    guestReadyBadge: true,
     status: 'active',
     featured: true,
     defaultPinned: true,
@@ -103,6 +104,7 @@ const RAW_TOOLS = [
     category: 'finance',
     tags: ['quotation', 'quote', 'estimate', 'proposal', 'pdf', 'convert'],
     supportsGuestMode: true,
+    guestReadyBadge: true,
     status: 'active',
     featured: true,
     defaultPinned: true,
@@ -122,6 +124,7 @@ const RAW_TOOLS = [
     category: 'marketing',
     tags: ['seo', 'audit', 'marketing', 'meta', 'headings', 'technical', 'sitemap', 'robots'],
     supportsGuestMode: true,
+    guestReadyBadge: false,
     status: 'active',
     featured: true,
     defaultPinned: true,
@@ -141,6 +144,7 @@ const RAW_TOOLS = [
     category: 'finance',
     tags: ['receipt', 'payment', 'pos', 'thermal', 'a5', 'cash', 'card'],
     supportsGuestMode: true,
+    guestReadyBadge: true,
     status: 'active',
     featured: true,
     defaultPinned: false,
@@ -160,6 +164,7 @@ const RAW_TOOLS = [
     category: 'finance',
     tags: ['expense', 'spending', 'budget', 'accounting'],
     supportsGuestMode: false,
+    guestReadyBadge: false,
     rendersOwnAuthGate: true,
     status: 'active',
     featured: true,
@@ -180,6 +185,7 @@ const RAW_TOOLS = [
     category: 'documents',
     tags: ['purchase order', 'po', 'supplier', 'procurement'],
     supportsGuestMode: true,
+    guestReadyBadge: true,
     status: 'active',
     featured: true,
     defaultPinned: false,
@@ -199,6 +205,7 @@ const RAW_TOOLS = [
     category: 'ai',
     tags: ['ai', 'proposal', 'writing', 'gpt', 'assistant'],
     supportsGuestMode: false,
+    guestReadyBadge: false,
     rendersOwnAuthGate: true,
     status: 'active',
     featured: true,
@@ -218,7 +225,8 @@ const RAW_TOOLS = [
     iconName: 'Calculator',
     category: 'utilities',
     tags: ['tax', 'vat', 'gst', 'calculator'],
-    supportsGuestMode: true,
+    supportsGuestMode: false,
+    guestReadyBadge: false,
     status: 'coming_soon',
     featured: false,
     defaultPinned: false,
@@ -310,7 +318,7 @@ export function searchTools(query = '', filters = {}) {
 
   return TOOLS_REGISTRY.filter((tool) => {
     if (category && category !== 'all' && tool.category !== category) return false;
-    if (guestOnly && !tool.supportsGuestMode) return false;
+    if (guestOnly && !tool.guestReadyBadge) return false;
     if (pinnedOnly && !pinnedSet.has(tool.id)) return false;
     if (!includeComingSoon && tool.status === TOOL_STATUS.COMING_SOON) return false;
     if (status && tool.status !== status) return false;

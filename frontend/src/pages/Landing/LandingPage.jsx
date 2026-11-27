@@ -103,7 +103,7 @@ export function LandingPage() {
         <div className="flex items-end justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold tracking-tight text-slate-900">Featured tools</h2>
-            <p className="text-sm text-slate-500">Ready to use right now — no account required.</p>
+            <p className="text-sm text-slate-500">Ready to launch — guest-ready document generators plus cloud finance &amp; AI workflows.</p>
           </div>
           <Link to="/tools" className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
             View all <ArrowRight className="h-4 w-4" />
@@ -122,9 +122,14 @@ export function LandingPage() {
                   <ToolIcon name={tool.iconName} className="h-6 w-6" />
                 </span>
                 <span className="min-w-0">
-                  <span className="flex items-center gap-2">
+                  <span className="flex flex-wrap items-center gap-2">
                     <span className="text-base font-bold text-slate-900">{tool.name}</span>
                     <ToolStatusPill status={tool.status} />
+                    {Boolean(tool.guestReadyBadge) && (
+                      <span className="inline-flex rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-700 ring-1 ring-sky-200">
+                        Guest Ready
+                      </span>
+                    )}
                   </span>
                   <span className="mt-1 block text-sm text-slate-500">{tool.description}</span>
                   <span className={`mt-3 inline-flex items-center gap-1 text-sm font-semibold ${accent.text}`}>

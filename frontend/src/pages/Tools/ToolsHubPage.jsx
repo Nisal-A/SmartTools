@@ -16,7 +16,9 @@ import { useAuth } from '../../app/AuthContext.jsx';
 import { usePinnedTools } from '../../hooks/usePinnedTools.js';
 import {
   TOOLS_REGISTRY,
+  getActiveTools,
   getCategoryMeta,
+  getComingSoonTools,
   getToolsByCategory,
   isToolLaunchable,
   searchTools,
@@ -56,6 +58,7 @@ function ToolCard({ tool, pinned, onTogglePin, pinBusy }) {
     <article
       data-testid={`tool-card-${tool.id}`}
       data-status={tool.status}
+      data-guest-ready={Boolean(tool.guestReadyBadge) ? 'true' : 'false'}
       className={`group relative flex flex-col rounded-2xl border bg-white p-5 shadow-sm transition ${
         launchable
           ? `border-slate-200 hover:-translate-y-0.5 hover:shadow-md ${accent.hoverBorder}`
@@ -93,8 +96,11 @@ function ToolCard({ tool, pinned, onTogglePin, pinBusy }) {
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{category.label}</span>
         <span className="text-slate-300">·</span>
         <ToolStatusPill status={tool.status} />
-        {tool.supportsGuestMode && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-700 ring-1 ring-sky-200">
+        {launchable && Boolean(tool.guestReadyBadge) && (
+          <span
+            data-testid={`guest-ready-badge-${tool.id}`}
+            className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-700 ring-1 ring-sky-200"
+          >
             <UserCheck className="h-3 w-3" /> Guest Ready
           </span>
         )}
@@ -207,6 +213,8 @@ export function ToolsHubPage() {
 
   const availableTools = results.filter(isToolLaunchable);
   const upcomingTools = results.filter((tool) => !isToolLaunchable(tool));
+  const totalActiveToolsCount = getActiveTools(TOOLS_REGISTRY).length;
+  const totalUpcomingToolsCount = getComingSoonTools(TOOLS_REGISTRY).length;
   const hasActiveFilters = Boolean(query.trim()) || category !== 'all' || guestOnly || pinnedOnly;
 
   const handleTogglePin = async (toolId) => {
@@ -236,9 +244,9 @@ export function ToolsHubPage() {
               Every SmartTools workflow in one place
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              {TOOLS_REGISTRY.filter(isToolLaunchable).length} tools available now ·{' '}
-              {TOOLS_REGISTRY.filter((t) => !isToolLaunchable(t)).length} on the roadmap · Pin up to {maxPins}{' '}
-              favourites{isAuthenticated ? ' to your sidebar' : ' (saved in this browser)'}.
+              {totalActiveToolsCount} active tools available now
+              {totalUpcomingToolsCount > 0 ? ` · ${totalUpcomingToolsCount} upcoming on roadmap` : ''} · Pin up to{' '}
+              {maxPins} favourites{isAuthenticated ? ' to your sidebar' : ' (saved in this browser)'}.
             </p>
           </div>
 
