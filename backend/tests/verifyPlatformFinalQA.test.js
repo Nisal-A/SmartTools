@@ -321,6 +321,9 @@ async function runFinalQA() {
     await page.setViewport({ width: 390, height: 844 });
     await page.click('[data-testid="mobile-nav-toggle"]');
     await page.waitForSelector('[data-testid="sidebar-mobile-drawer"]');
+    await new Promise((r) => setTimeout(r, 260));
+    await page.click('[aria-label="Close navigation"]');
+    await new Promise((r) => setTimeout(r, 260));
     await page.click('[data-testid="command-switcher-trigger"]');
     await page.waitForSelector('[data-testid="command-tool-switcher"]');
     console.log(
